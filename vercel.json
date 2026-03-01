@@ -1,9 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "env": {
-    "NODE_ENV": "production"
-  },
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -54,12 +51,5 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/**/*.ts": {
-      "memory": 256,
-      "maxDuration": 10
-    }
-  },
-  "regions": ["iad1"]
+  ]
 }

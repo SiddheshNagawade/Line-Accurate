@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Web-Based Engineering Drawing Tool</title>
+    
+    <!-- DNS Prefetch & Preconnect to reduce connection setup latency -->
+    <link rel="dns-prefetch" href="https://vercel.app">
+    <link rel="preconnect" href="https://vercel.app" crossorigin>
+    <link rel="preconnect" href="https://lineaccurate.vercel.app" crossorigin>
+    
+    <!-- Preload critical vendor chunks (update hash after build) -->
+    <link rel="preload" as="script" href="/assets/vendor-react-*.js" crossorigin>
+    <link rel="preload" as="script" href="/assets/vendor-router-*.js" crossorigin>
+    
+    <!-- Inline small critical CSS to avoid a render-blocking stylesheet request -->
+    <style>
+      :root{--bg:#ffffff}
+      html,body,#root{background-color:var(--bg);animation:fadeIn 0.3s ease-in-out}
+      @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+      body{margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

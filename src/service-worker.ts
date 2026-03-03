@@ -76,7 +76,7 @@ self.addEventListener('fetch', (event: FetchEvent) => {
             cache.put(request, response.clone());
           }
           return response;
-        } catch (error) {
+        } catch {
           return new Response('Asset not found', { status: 404 });
         }
       })()
@@ -94,7 +94,7 @@ self.addEventListener('fetch', (event: FetchEvent) => {
           cache.put(request, response.clone());
         }
         return response;
-      } catch (error) {
+      } catch {
         const cached = await caches.match(request);
         if (cached) {
           return cached;

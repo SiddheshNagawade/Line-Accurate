@@ -9,6 +9,9 @@ export default defineConfig({
     __BUILD_ID__: JSON.stringify(`v${Date.now()}`),
   },
   build: {
+    // `vendor-three` is intentionally route-deferred (landing animation), so keep
+    // warning threshold aligned with that isolated chunk size.
+    chunkSizeWarningLimit: 760,
     // Aggressive code splitting for better caching & parallel loading
     rollupOptions: {
       input: {
@@ -16,12 +19,16 @@ export default defineConfig({
         'service-worker': './src/service-worker.ts',
       },
       output: {
-        manualChunks: {
-          // Vendor chunks—split large deps for independent caching
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-router': ['react-router-dom'],
-          'vendor-ui': ['lucide-react'],
-          'vendor-pdf': ['jspdf'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('/react/') || id.includes('/react-dom/')) return 'vendor-react';
+            if (id.includes('/react-router-dom/')) return 'vendor-router';
+            if (id.includes('/lucide-react/')) return 'vendor-ui';
+            if (id.includes('/jspdf/')) return 'vendor-pdf';
+            if (id.includes('/three/')) return 'vendor-three';
+            if (id.includes('/@react-three/fiber/') || id.includes('/its-fine/') || id.includes('/react-reconciler/')) return 'vendor-r3f';
+            if (id.includes('/react-use-measure/')) return 'vendor-measure';
+          }
         },
         // Use content hashing for long-term cache busting
         entryFileNames: 'assets/[name]-[hash].js',
@@ -47,7 +54,6 @@ export default defineConfig({
     // Preload critical chunks
     cssCodeSplit: true,
     sourcemap: false, // Disable source maps in production for smaller files
-    chunkSizeWarningLimit: 700,
   },
   // Optimize dependencies upfront
   optimizeDeps: {

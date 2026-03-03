@@ -43,13 +43,18 @@ export function PropertiesPanel() {
     };
   }, [selectedElements, selCount]);
 
+  const getBulkStyle = (partial: Partial<DrawingElement['style']>): DrawingElement['style'] => ({
+    strokeColor: partial.strokeColor ?? selectionInfo?.color ?? '#ffffff',
+    strokeWidth: partial.strokeWidth ?? selectionInfo?.width ?? 2,
+  });
+
   const handleBulkColorChange = (color: string) => {
-    dispatch({ type: 'UPDATE_ELEMENTS_BULK', ids: state.selectedElementIds, changes: { style: { strokeColor: color } as any } });
+    dispatch({ type: 'UPDATE_ELEMENTS_BULK', ids: state.selectedElementIds, changes: { style: getBulkStyle({ strokeColor: color }) } });
     dispatch({ type: 'SAVE_STATE' });
   };
 
   const handleBulkWidthChange = (width: number) => {
-    dispatch({ type: 'UPDATE_ELEMENTS_BULK', ids: state.selectedElementIds, changes: { style: { strokeWidth: width } as any } });
+    dispatch({ type: 'UPDATE_ELEMENTS_BULK', ids: state.selectedElementIds, changes: { style: getBulkStyle({ strokeWidth: width }) } });
     dispatch({ type: 'SAVE_STATE' });
   };
 

@@ -18,12 +18,6 @@ interface SelectToolProps {
 export function SelectTool({
   canvasRef,
   getCanvasPoint,
-  clipToPageBounds,
-  getPageAtPoint,
-  isDrawing,
-  setIsDrawing,
-  currentElement,
-  setCurrentElement,
   render,
 }: SelectToolProps) {
   const { state, dispatch } = useDrawingContext();
@@ -31,7 +25,6 @@ export function SelectTool({
   const [isDragging, setIsDragging] = useState(false);
   const [isMarquee, setIsMarquee] = useState(false); // marquee rectangle selection
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
-  const [resizeOrigin, setResizeOrigin] = useState<Point | null>(null);
   const [initialImageSize, setInitialImageSize] = useState<{ width: number; height: number } | null>(null);
   const [initialImagePos, setInitialImagePos] = useState<Point | null>(null);
 
@@ -69,7 +62,7 @@ export function SelectTool({
   selectableSpatialIndexRef.current = selectableSpatialIndex;
 
   // --- Helper: compute an element's axis-aligned bounding box ---
-  const getElementBounds = useCallback((el: DrawingElement): { minX: number; minY: number; maxX: number; maxY: number } | null => {
+  const getElementAabb = useCallback((el: DrawingElement): { minX: number; minY: number; maxX: number; maxY: number } | null => {
     if (el.points.length === 0) return null;
 
     if (el.type === 'image' && el.imageWidth && el.imageHeight) {
@@ -105,14 +98,14 @@ export function SelectTool({
 
   // --- Helper: check if an element's bounding box intersects a rectangle ---
   const elementIntersectsRect = useCallback((el: DrawingElement, rect: { x: number; y: number; w: number; h: number }): boolean => {
-    const bounds = getElementBounds(el);
+    const bounds = getElementAabb(el);
     if (!bounds) return false;
     const rMinX = Math.min(rect.x, rect.x + rect.w);
     const rMaxX = Math.max(rect.x, rect.x + rect.w);
     const rMinY = Math.min(rect.y, rect.y + rect.h);
     const rMaxY = Math.max(rect.y, rect.y + rect.h);
     return bounds.maxX >= rMinX && bounds.minX <= rMaxX && bounds.maxY >= rMinY && bounds.minY <= rMaxY;
-  }, [getElementBounds]);
+  }, [getElementAabb]);
 
 
   const findElementAtPoint = (point: Point): DrawingElement | null => {
@@ -577,7 +570,7 @@ export function SelectTool({
       document.removeEventListener('keydown', handleKeyDown);
     };
   // Only re-attach when canvas ref, getCanvasPoint, or render change — NOT on every state change
-  }, [canvasRef, getCanvasPoint, dispatch, render]);
+  }, [canvasRef, getCanvasPoint, dispatch, render, elementIntersectsRect]);
 
   return null;
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { MousePointer2, Minus, Ruler, PenTool, Type, Eraser, RotateCcw, RotateCw, ImagePlus, LayoutGrid, Check, Pen } from 'lucide-react';
-import { useDrawingSelector, useDrawingDispatch, Tool, ToolSettings } from '../context/DrawingContext';
+import { useDrawingSelector, useDrawingDispatch, Tool } from '../context/DrawingContext';
 
 // Map tool ids to lucide icons
 const toolIconMap: Record<Tool | 'image', React.ElementType> = {
@@ -29,8 +29,6 @@ const allTools: ToolDef[] = [
   { id: 'eraser', label: 'Eraser', shortcut: 'E' },
   { id: 'image', label: 'Insert Image', shortcut: 'I' },
 ];
-
-const drawingToolIds: Tool[] = ['select', 'line', 'angle', 'freehand', 'text', 'eraser'];
 
 const DEFAULT_VISIBLE: (Tool | 'image')[] = ['select', 'line', 'freehand', 'eraser'];
 
@@ -139,13 +137,34 @@ export function Toolbar() {
 
   const handleStrokeWidthChange = (tool: Tool, width: number) => {
     const t = tool === 'select' ? 'line' : tool;
-    dispatch({ type: 'UPDATE_TOOL_SETTINGS', tool: t as keyof ToolSettings, settings: { strokeWidth: width } as any });
+    switch (t) {
+      case 'line':
+      case 'angle':
+      case 'freehand':
+        dispatch({ type: 'UPDATE_TOOL_SETTINGS', tool: t, settings: { strokeWidth: width } });
+        break;
+      case 'text':
+        dispatch({ type: 'UPDATE_TOOL_SETTINGS', tool: 'text', settings: { fontSize: Math.max(8, Math.round(width * 4)) } });
+        break;
+      case 'eraser':
+        dispatch({ type: 'UPDATE_TOOL_SETTINGS', tool: 'eraser', settings: { strokeWidth: width } });
+        break;
+    }
   };
 
   const handleColorChange = (tool: Tool, color: string) => {
     if (tool === 'eraser') return;
     const t = tool === 'select' ? 'line' : tool;
-    dispatch({ type: 'UPDATE_TOOL_SETTINGS', tool: t as keyof ToolSettings, settings: { strokeColor: color } as any });
+    switch (t) {
+      case 'line':
+      case 'angle':
+      case 'freehand':
+        dispatch({ type: 'UPDATE_TOOL_SETTINGS', tool: t, settings: { strokeColor: color } });
+        break;
+      case 'text':
+        dispatch({ type: 'UPDATE_TOOL_SETTINGS', tool: 'text', settings: { strokeColor: color } });
+        break;
+    }
   };
 
   const getCurrentStrokeWidth = (): number => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useDrawingContext, Point, DrawingElement } from '../../context/DrawingContext';
 import { isPointNearLine } from '../../utils/geometry';
 
@@ -21,15 +21,12 @@ export function EraserTool({
   getPageAtPoint,
   isDrawing,
   setIsDrawing,
-  currentElement,
-  setCurrentElement,
-  render,
 }: EraserToolProps) {
   const { state, dispatch } = useDrawingContext();
 
 
 
-  const findElementsToErase = (point: Point): string[] => {
+  const findElementsToErase = useCallback((point: Point): string[] => {
     const eraserSize = state.toolSettings.eraser.strokeWidth / 2;
     const elementsToErase: string[] = [];
 
@@ -94,7 +91,7 @@ export function EraserTool({
     });
 
     return elementsToErase;
-  };
+  }, [state.elements, state.layers, state.toolSettings.eraser.strokeWidth]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -153,7 +150,7 @@ export function EraserTool({
       canvas.removeEventListener('pointermove', handlePointerMove);
       canvas.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [canvasRef, getCanvasPoint, clipToPageBounds, getPageAtPoint, isDrawing, setIsDrawing, state, dispatch]);
+  }, [canvasRef, getCanvasPoint, clipToPageBounds, getPageAtPoint, isDrawing, setIsDrawing, state.pencilMode, dispatch, findElementsToErase]);
 
   return null;
 }

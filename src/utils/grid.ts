@@ -4,9 +4,10 @@ export function drawGrid(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  gridSize: number, // This parameter is kept for compatibility but we use fixed 1mm grid
+  _gridSize: number, // This parameter is kept for compatibility but we use fixed 1mm grid
   canvasBackground: string = '#2a2a2a'
 ) {
+  void _gridSize;
   ctx.save();
   
   // Grid colors for better visibility
@@ -63,7 +64,8 @@ export function drawGrid(
   ctx.restore();
 }
 
-export function snapToGrid(point: Point, gridSize: number): Point {
+export function snapToGrid(point: Point, _gridSize: number): Point {
+  void _gridSize;
   // Always snap to 1mm grid regardless of gridSize parameter
   const mmToPx = 3.779527559;
   const gridSizePx = mmToPx; // Fixed 1mm grid

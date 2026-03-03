@@ -21,7 +21,20 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': [
         'warn',
-        { allowConstantExport: true },
+        {
+          allowConstantExport: true,
+          allowExportNames: [
+            'useAuth',
+            'useProjects',
+            'useDrawingContext',
+            'useDrawingSelector',
+            'useDrawingDispatch',
+            'A4_WIDTH_MM',
+            'A4_HEIGHT_MM',
+            'MM_TO_PX',
+            'PAGE_MARGIN',
+          ],
+        },
       ],
     },
   }

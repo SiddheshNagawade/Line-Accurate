@@ -27,7 +27,25 @@ const approxTextWidthMm = (text: string, fontSizePt: number) => {
   return text.length * fontSizePt * 0.5 * 0.352778;
 };
 
-function drawPdfArc(pdf: any, cx: number, cy: number, r: number, startAngle: number, endAngle: number, ccw: boolean) {
+interface PdfLike {
+  line: (x1: number, y1: number, x2: number, y2: number, style?: 'S' | 'F' | 'DF' | 'FD') => void;
+  setDrawColor: (r: number, g: number, b: number) => void;
+  setLineWidth: (width: number) => void;
+  setLineCap: (style: string) => void;
+  setLineJoin: (style: string) => void;
+  setFillColor: (r: number, g: number, b: number) => void;
+  circle: (x: number, y: number, radius: number, style?: 'S' | 'F' | 'DF' | 'FD') => void;
+  setFontSize: (size: number) => void;
+  setFont: (fontName: string, fontStyle: string) => void;
+  setTextColor: (r: number, g: number, b: number) => void;
+  rect: (x: number, y: number, width: number, height: number, style?: 'S' | 'F' | 'DF' | 'FD') => void;
+  text: (text: string, x: number, y: number, options?: { align?: 'left' | 'center' | 'right' }) => void;
+  addPage: () => void;
+  addImage: (imageData: string, format: string, x: number, y: number, width: number, height: number) => void;
+  save: (filename: string) => void;
+}
+
+function drawPdfArc(pdf: PdfLike, cx: number, cy: number, r: number, startAngle: number, endAngle: number, ccw: boolean) {
   let sweep = endAngle - startAngle;
   if (ccw) {
     while (sweep > 0) sweep -= 2 * Math.PI;
@@ -67,7 +85,7 @@ function getPageForPoint(point: { x: number; y: number }, totalPages: number, pa
 }
 
 function renderElementToPdf(
-  pdf: any,
+  pdf: PdfLike,
   el: DrawingElement,
   pageOriginX: number,
   pageOriginY: number,

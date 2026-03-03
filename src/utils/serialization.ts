@@ -20,8 +20,15 @@ export function deserializeDrawing(json: string): SerializedProject {
       throw new Error(`Invalid type at index ${idx}`);
     }
     if (!Array.isArray(el.points)) throw new Error(`Missing points at index ${idx}`);
-    el.points.forEach((p: any, pIdx: number) => {
-      if (typeof p !== 'object' || p === null || typeof p.x !== 'number' || typeof p.y !== 'number') {
+    el.points.forEach((p: unknown, pIdx: number) => {
+      if (
+        typeof p !== 'object' ||
+        p === null ||
+        !('x' in p) ||
+        !('y' in p) ||
+        typeof (p as { x: unknown }).x !== 'number' ||
+        typeof (p as { y: unknown }).y !== 'number'
+      ) {
         throw new Error(`Invalid point at element ${idx}, point ${pIdx}`);
       }
     });

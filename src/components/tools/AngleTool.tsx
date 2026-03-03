@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useDrawingContext, Point, DrawingElement } from '../../context/DrawingContext';
 
 interface AngleToolProps {
@@ -29,7 +29,7 @@ export function AngleTool({
   const [phase, setPhase] = useState<'start' | 'vertex' | 'endpoint'>('start');
 
   // Helper: check if a point is near an existing angle label
-  const findAngleLabelAtPoint = (point: Point): { element: DrawingElement; side: 'primary' | 'secondary' } | null => {
+  const findAngleLabelAtPoint = useCallback((point: Point): { element: DrawingElement; side: 'primary' | 'secondary' } | null => {
     for (let i = state.elements.length - 1; i >= 0; i--) {
       const el = state.elements[i];
       if (el.type !== 'angle' || el.points.length < 3 || !el.measurements?.angle) continue;
@@ -73,7 +73,7 @@ export function AngleTool({
       }
     }
     return null;
-  };
+  }, [state.elements, state.layers]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -223,7 +223,7 @@ export function AngleTool({
       canvas.removeEventListener('pointerdown', handlePointerDown);
       canvas.removeEventListener('pointermove', handlePointerMove);
     };
-  }, [canvasRef, getCanvasPoint, clipToPageBounds, getPageAtPoint, isDrawing, setIsDrawing, currentElement, setCurrentElement, render, state.toolSettings.angle, state.currentLayerId, state.elements, state.layers, dispatch, phase]);
+  }, [canvasRef, getCanvasPoint, clipToPageBounds, getPageAtPoint, isDrawing, setIsDrawing, currentElement, setCurrentElement, render, state.toolSettings.angle, state.currentLayerId, state.pencilMode, dispatch, phase, findAngleLabelAtPoint]);
 
   // Reset phase when tool changes
   useEffect(() => {

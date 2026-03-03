@@ -1,10 +1,10 @@
-import React, { useEffect, Suspense, lazy, Component } from 'react';
+import React, { useEffect, Suspense, lazy, Component, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { DrawingContextProvider } from './context/DrawingContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider, useProjects } from './context/ProjectContext';
 import { LoadingScreen } from './components/LoadingScreen';
-import { loadDashboardPage, loadEditorPage, loadLandingPage, loadLoginPage } from './utils/routePreload';
+import { LandingPage } from './components/LandingPage';
 
 // Error boundary for the editor — prevents a single project failure from
 // crashing the whole app; shows a minimal recovery UI instead.
@@ -47,11 +47,32 @@ class EditorErrorBoundary extends Component<
   }
 }
 
-// Lazy-load non-critical routes to reduce initial bundle size
-const LoginPage = lazy(() => loadLoginPage().then(m => ({ default: m.LoginPage })));
-const Dashboard = lazy(() => loadDashboardPage().then(m => ({ default: m.Dashboard })));
-const EditorPage = lazy(() => loadEditorPage().then(m => ({ default: m.EditorPage })));
-const LandingPage = lazy(() => loadLandingPage().then(m => ({ default: m.LandingPage })));
+// Keep landing in initial chunk; lazy-load non-critical routes
+const importLoginPage = () => import('./components/auth/LoginPage').then(m => ({ default: m.LoginPage }));
+const importDashboardPage = () => import('./components/Dashboard').then(m => ({ default: m.Dashboard }));
+const importEditorPage = () => import('./components/EditorPage').then(m => ({ default: m.EditorPage }));
+
+const LoginPage = lazy(importLoginPage);
+const Dashboard = lazy(importDashboardPage);
+const EditorPage = lazy(importEditorPage);
+
+const hasRIC = typeof window !== 'undefined' && 'requestIdleCallback' in window;
+
+function runWhenIdle(task: () => void, timeout = 1200) {
+  if (hasRIC) {
+    const id = (window as Window & {
+      requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+      cancelIdleCallback: (handle: number) => void;
+    }).requestIdleCallback(() => task(), { timeout });
+
+    return () => {
+      (window as Window & { cancelIdleCallback: (handle: number) => void }).cancelIdleCallback(id);
+    };
+  }
+
+  const id = window.setTimeout(task, 240);
+  return () => window.clearTimeout(id);
+}
 
 // Route change handler component
 function RouteHandler({ children }: { children: React.ReactNode }) {
@@ -84,10 +105,17 @@ function App() {
 }
 
 function LandingRoute() {
+  useEffect(() => {
+    const cancel = runWhenIdle(() => {
+      void importLoginPage();
+      void importDashboardPage();
+    }, 1500);
+
+    return cancel;
+  }, []);
+
   return (
-    <Suspense fallback={<LoadingScreen />}>
-      <LandingPage />
-    </Suspense>
+    <LandingPage />
   );
 }
 
@@ -111,6 +139,9 @@ function LoginRoute() {
 
 function DashboardRoute() {
   const { user, loading } = useAuth();
+  const preloadEditor = useCallback(() => {
+    void importEditorPage();
+  }, []);
 
   if (loading) {
     return <LoadingScreen />;
@@ -122,7 +153,7 @@ function DashboardRoute() {
 
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <Dashboard />
+      <Dashboard onProjectIntent={preloadEditor} />
     </Suspense>
   );
 }

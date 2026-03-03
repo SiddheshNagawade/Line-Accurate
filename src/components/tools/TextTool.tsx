@@ -73,7 +73,7 @@ export function TextTool({
     return () => {
       canvas.removeEventListener('pointerdown', handlePointerDown);
     };
-  }, [canvasRef, getCanvasPoint, clipToPageBounds, getPageAtPoint, state.currentTool, state.panOffset, state.zoom]);
+  }, [canvasRef, getCanvasPoint, clipToPageBounds, getPageAtPoint, state.currentTool, state.pencilMode, state.panOffset, state.zoom]);
 
   const handleTextSubmit = () => {
     if (textInput.trim() && inputPosition && canvasRect) {

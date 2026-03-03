@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layers, Settings, FileText, ChevronDown, User, LogOut, ArrowLeft } from 'lucide-react';
 import { DrawingCanvas } from './DrawingCanvas';
@@ -24,10 +24,8 @@ export function EditorPage() {
   const [activeNav, setActiveNav] = useState<'layers' | 'properties' | 'export' | null>(null);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [unsaveWarning, setUnsaveWarning] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
   const { state: drawingState } = useDrawingContext();
-  const pendingNavigationRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!notice) return;
@@ -57,6 +55,8 @@ export function EditorPage() {
   }, [drawingState.elements.length]);
 
   useEffect(() => {
+    const overscrollEvent = 'overscroll' as unknown as keyof DocumentEventMap;
+
     const blockSwipeWheel = (e: WheelEvent) => {
       const target = e.target as HTMLElement;
       if (target?.tagName === 'CANVAS') return;
@@ -70,15 +70,16 @@ export function EditorPage() {
       e.preventDefault();
     };
 
-    document.addEventListener('wheel', blockSwipeWheel, { passive: false, capture: true });
-    document.addEventListener('overscroll' as any, blockOverscroll, { passive: false });
+    const wheelOptions: AddEventListenerOptions = { passive: false, capture: true };
+    document.addEventListener('wheel', blockSwipeWheel, wheelOptions);
+    document.addEventListener(overscrollEvent, blockOverscroll as EventListener, { passive: false });
 
     document.documentElement.style.overscrollBehaviorX = 'none';
     document.body.style.overscrollBehaviorX = 'none';
 
     return () => {
-      document.removeEventListener('wheel', blockSwipeWheel, { capture: true } as any);
-      document.removeEventListener('overscroll' as any, blockOverscroll);
+      document.removeEventListener('wheel', blockSwipeWheel, wheelOptions);
+      document.removeEventListener(overscrollEvent, blockOverscroll as EventListener);
     };
   }, []);
 
@@ -193,50 +194,6 @@ export function EditorPage() {
         >
           <div className={`w-2 h-2 rounded-full ${notice.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
           <span>{notice.text}</span>
-        </div>
-      )}
-
-      {unsaveWarning && drawingState.elements.length > 0 && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] animate-in fade-in duration-200">
-          <div className="bg-[#1e1e1e] border border-white/10 rounded-2xl shadow-2xl max-w-md w-full mx-4 animate-in zoom-in-95 duration-300">
-            <div className="px-6 py-5 border-b border-white/10">
-              <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-orange-400">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                <span>Unsaved Changes</span>
-              </h2>
-            </div>
-            <div className="px-6 py-4 space-y-3">
-              <p className="text-white/80 text-sm leading-relaxed">
-                You have unsaved work on this drawing. Your progress will be lost if you leave without saving.
-              </p>
-              <p className="text-white/60 text-sm">
-                Would you like to save before leaving?
-              </p>
-            </div>
-            <div className="px-6 py-4 border-t border-white/10 flex space-x-3">
-              <Button variant="secondary" size="md" onClick={() => setUnsaveWarning(false)} className="flex-1">
-                Continue Working
-              </Button>
-              <Button
-                variant="danger"
-                size="md"
-                onClick={() => {
-                  setUnsaveWarning(false);
-                  if (pendingNavigationRef.current) {
-                    pendingNavigationRef.current();
-                    pendingNavigationRef.current = null;
-                  }
-                }}
-                className="flex-1"
-              >
-                Leave Without Saving
-              </Button>
-            </div>
-          </div>
         </div>
       )}
     </AppLayout>

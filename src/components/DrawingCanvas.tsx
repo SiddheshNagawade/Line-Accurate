@@ -301,7 +301,7 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
 
       ctx.restore();
     }
-  }, [state.gridVisible, state.totalPages, state.pageWidth, state.pageHeight, state.zoom, getPageBounds]);
+  }, [state.gridVisible, state.totalPages, state.zoom, getPageBounds]);
 
   // Draw element with page clipping
   const drawElement = useCallback((ctx: CanvasRenderingContext2D, element: DrawingElement) => {
@@ -854,7 +854,7 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
     ro.observe(container);
     resizeCanvas();
     return () => ro.disconnect();
-  }, [state.totalPages, state.pageWidth, state.pageHeight, clampPan, computeAndApplyMinZoom, getContentSize, dispatch, render]);
+  }, [state.totalPages, state.pageWidth, state.pageHeight, state.panOffset, clampPan, computeAndApplyMinZoom, getContentSize, dispatch, render]);
 
   // Convert pointer event to canvas coordinates (use CSS pixels; devicePixelRatio handled by context scaling)
   const getCanvasPoint = (e: React.PointerEvent | PointerEvent): Point => {
@@ -933,7 +933,7 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
       const clamped = clampPan(desired);
       dispatch({ type: 'SET_PAN', offset: clamped });
     }
-  }, [state.zoom, state.pageWidth, state.pageHeight, state.totalPages, clampPan, getContentSize, dispatch]);
+  }, [state.zoom, state.pageWidth, state.pageHeight, state.totalPages, state.panOffset, clampPan, getContentSize, dispatch]);
 
   // Handle zoom and pan with wheel / trackpad
   const handleWheel = (e: React.WheelEvent) => {
@@ -1014,7 +1014,6 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
 
     // In pencil mode, only allow pen pointers for drawing
     // Touch pointers can still pan
-    const isPenPointer = e.pointerType === 'pen';
     const isTouchPointer = e.pointerType === 'touch';
     const shouldPreventDrawing = state.pencilMode && isTouchPointer;
 
@@ -1127,8 +1126,8 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchend', onTouchEnd, { passive: true });
     return () => {
-      el.removeEventListener('touchstart', onTouchStart as any);
-      el.removeEventListener('touchend', onTouchEnd as any);
+      el.removeEventListener('touchstart', onTouchStart as EventListener);
+      el.removeEventListener('touchend', onTouchEnd as EventListener);
     };
   }, [dispatch]);
 

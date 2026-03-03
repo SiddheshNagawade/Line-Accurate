@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react';
+import { CSSProperties, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProjects } from '../context/ProjectContext';
 import { Plus, Trash2, LogOut, ChevronDown } from 'lucide-react';
 import { useRef } from 'react';
-import { preloadEditorShell } from '../utils/routePreload';
 
-export function Dashboard() {
+interface DashboardProps {
+  onProjectIntent?: () => void;
+}
+
+type CardDelayStyle = CSSProperties & { '--card-delay': string };
+
+export function Dashboard({ onProjectIntent }: DashboardProps) {
   const { user, signOut } = useAuth();
   const { projects, createProject, deleteProject } = useProjects();
   const navigate = useNavigate();
@@ -26,6 +31,7 @@ export function Dashboard() {
   const handleCreateProject = () => {
     if (!newProjectName.trim() || isCreatingProject) return;
 
+    onProjectIntent?.();
     setIsCreatingProject(true);
     const project = createProject(newProjectName);
     setNewlyCreatedProjectId(project.id);
@@ -39,7 +45,7 @@ export function Dashboard() {
   };
 
   const handleOpenProject = (projectId: string) => {
-    preloadEditorShell();
+    onProjectIntent?.();
     navigate(`/app/${projectId}`);
   };
 
@@ -136,9 +142,14 @@ export function Dashboard() {
         {/* Create New Project Card */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
           <button
-            onClick={() => setShowCreateModal(true)}
+            onMouseEnter={onProjectIntent}
+            onFocus={onProjectIntent}
+            onClick={() => {
+              onProjectIntent?.();
+              setShowCreateModal(true);
+            }}
             className={`group relative h-48 rounded-xl border-2 border-dashed border-white/20 hover:border-[#cc8bed]/50 bg-white/5 hover:bg-white/10 transition-all duration-200 flex items-center justify-center cursor-pointer dashboard-card-enter ${dashboardReady ? 'dashboard-card-ready' : ''}`}
-            style={{ ['--card-delay' as any]: '0ms' }}
+            style={{ '--card-delay': '0ms' } as CardDelayStyle}
           >
             <div className="flex flex-col items-center space-y-2 group-hover:scale-110 transition-transform">
               <div className="w-12 h-12 rounded-lg bg-[#cc8bed]/20 group-hover:bg-[#cc8bed]/30 flex items-center justify-center transition">
@@ -154,11 +165,11 @@ export function Dashboard() {
           {projects.map((project, projectIndex) => (
             <div
               key={project.id}
+              onMouseEnter={onProjectIntent}
+              onFocus={onProjectIntent}
               onClick={() => handleOpenProject(project.id)}
-              onMouseEnter={preloadEditorShell}
-              onFocus={preloadEditorShell}
               className={`group relative h-48 rounded-xl glass-panel border border-white/10 hover:border-[#cc8bed]/50 overflow-hidden cursor-pointer hover:shadow-lg hover:shadow-[#cc8bed]/20 transition-all duration-200 dashboard-card-enter ${dashboardReady ? 'dashboard-card-ready' : ''} ${newlyCreatedProjectId === project.id ? 'project-pop-bounce' : ''}`}
-              style={{ ['--card-delay' as any]: `${Math.min((projectIndex + 1) * 60, 420)}ms` }}
+              style={{ '--card-delay': `${Math.min((projectIndex + 1) * 60, 420)}ms` } as CardDelayStyle}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-[#cc8bed]/5 to-transparent opacity-0 group-hover:opacity-100 transition" />
               

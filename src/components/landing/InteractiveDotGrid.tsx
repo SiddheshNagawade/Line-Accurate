@@ -1,4 +1,6 @@
-import { RefObject, useEffect, useRef } from 'react';
+import { MutableRefObject, RefObject, useEffect, useMemo, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { BufferAttribute, BufferGeometry, Points } from 'three';
 
 type InteractiveDotGridProps = {
   containerRef: RefObject<HTMLElement>;
@@ -7,28 +9,185 @@ type InteractiveDotGridProps = {
   color?: string;
 };
 
-type Dot = {
-  baseX: number;
-  baseY: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  phase: number;
-  jitter: number;
-  cooldown: number;
-  life: number;
+type DotFieldInnerProps = {
+  pointerRef: MutableRefObject<{ x: number; y: number; vx: number; vy: number; speed: number; active: boolean }>;
+  spacingPx: number;
+  dotSize: number;
+  color: string;
 };
 
-function hexToRgba(hexColor: string, alpha: number) {
-  const hex = hexColor.replace('#', '').trim();
-  if (hex.length !== 6) {
-    return `rgba(204,139,237,${alpha})`;
-  }
-  const red = Number.parseInt(hex.slice(0, 2), 16);
-  const green = Number.parseInt(hex.slice(2, 4), 16);
-  const blue = Number.parseInt(hex.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerProps) {
+  const pointsRef = useRef<Points>(null);
+  const { size, viewport } = useThree();
+
+  const data = useMemo(() => {
+    const columns = Math.max(12, Math.floor(size.width / spacingPx) + 1);
+    const rows = Math.max(8, Math.floor(size.height / spacingPx) + 1);
+    const count = columns * rows;
+
+    const base = new Float32Array(count * 3);
+    const current = new Float32Array(count * 3);
+    const velocity = new Float32Array(count * 3);
+    const driftLife = new Float32Array(count);
+    const phase = new Float32Array(count);
+    const jitter = new Float32Array(count);
+    const cooldown = new Float32Array(count);
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < columns; col += 1) {
+        const index = row * columns + col;
+        const i3 = index * 3;
+
+        const x = -viewport.width / 2 + (col / Math.max(1, columns - 1)) * viewport.width;
+        const y = viewport.height / 2 - (row / Math.max(1, rows - 1)) * viewport.height;
+
+        base[i3] = x;
+        base[i3 + 1] = y;
+        base[i3 + 2] = 0;
+
+        current[i3] = x;
+        current[i3 + 1] = y;
+        current[i3 + 2] = 0;
+
+        velocity[i3] = 0;
+        velocity[i3 + 1] = 0;
+        velocity[i3 + 2] = 0;
+
+        driftLife[index] = 0;
+        phase[index] = Math.random() * Math.PI * 2;
+        jitter[index] = 0.45 + Math.random() * 0.8;
+        cooldown[index] = 0;
+      }
+    }
+
+    return { base, current, velocity, driftLife, phase, jitter, cooldown, count };
+  }, [size.width, size.height, spacingPx, viewport.width, viewport.height]);
+
+  const geometry = useMemo(() => {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(data.current, 3));
+    return g;
+  }, [data]);
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
+  useFrame((state, delta) => {
+    const points = pointsRef.current;
+    if (!points) return;
+
+    const pointer = pointerRef.current;
+    const pointerX = (pointer.x * viewport.width) / 2;
+    const pointerY = (pointer.y * viewport.height) / 2;
+
+    const influenceRadius = Math.max(viewport.width, viewport.height) * 0.14;
+    const repelStrength = 0.78;
+    const baseSpring = 0.05;
+    const damping = 0.972;
+    const maxSpeed = 0.072;
+    const dt = Math.min(delta, 0.033);
+
+    for (let i = 0; i < data.count; i += 1) {
+      const i3 = i * 3;
+
+      const baseX = data.base[i3];
+      const baseY = data.base[i3 + 1];
+      let currentX = data.current[i3];
+      let currentY = data.current[i3 + 1];
+      let velocityX = data.velocity[i3];
+      let velocityY = data.velocity[i3 + 1];
+      let life = data.driftLife[i];
+      let dotCooldown = data.cooldown[i];
+
+      if (pointer.active) {
+        const dx = currentX - pointerX;
+        const dy = currentY - pointerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < influenceRadius && dotCooldown <= 0) {
+          const t = 1 - distance / influenceRadius;
+          const inv = 1 / Math.max(distance, 0.001);
+          const radialX = dx * inv;
+          const radialY = dy * inv;
+
+          const tangentX = -radialY;
+          const tangentY = radialX;
+
+          const pointerSpeed = Math.min(1, pointer.speed / 1400);
+          const pointerInv = 1 / Math.max(Math.hypot(pointer.vx, pointer.vy), 0.001);
+          const pointerDirX = pointer.vx * pointerInv;
+          const pointerDirY = pointer.vy * pointerInv;
+
+          const randAngle = data.phase[i] + state.clock.elapsedTime * 0.8;
+          const randomX = Math.cos(randAngle);
+          const randomY = Math.sin(randAngle);
+
+          const scatterX = radialX * 0.22 + tangentX * 0.42 + randomX * 0.26 + pointerDirX * 0.1;
+          const scatterY = radialY * 0.22 + tangentY * 0.42 + randomY * 0.26 + pointerDirY * 0.1;
+
+          const impulse = (0.22 + pointerSpeed * 0.24) * t * repelStrength * data.jitter[i];
+          velocityX += scatterX * impulse;
+          velocityY += scatterY * impulse;
+          life = Math.max(life, 0.9 + t * 0.32);
+          dotCooldown = 0.04 + Math.random() * 0.1;
+        }
+      }
+
+      dotCooldown = Math.max(0, dotCooldown - dt);
+      life *= 0.992;
+      const wander = life * 0.013 * data.jitter[i];
+      const driftX = Math.sin(state.clock.elapsedTime * (0.75 + data.jitter[i] * 0.45) + data.phase[i]) * wander;
+      const driftY = Math.cos(state.clock.elapsedTime * (0.68 + data.jitter[i] * 0.35) + data.phase[i] * 1.4) * wander;
+
+      velocityX += driftX;
+      velocityY += driftY;
+
+      const springStrength = baseSpring + (1 - life) * 0.08;
+      velocityX += (baseX - currentX) * springStrength * dt * 60;
+      velocityY += (baseY - currentY) * springStrength * dt * 60;
+
+      const speed = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
+      if (speed > maxSpeed) {
+        const clamp = maxSpeed / speed;
+        velocityX *= clamp;
+        velocityY *= clamp;
+      }
+
+      velocityX *= damping;
+      velocityY *= damping;
+
+      currentX += velocityX;
+      currentY += velocityY;
+
+      data.current[i3] = currentX;
+      data.current[i3 + 1] = currentY;
+      data.current[i3 + 2] = 0;
+
+      data.velocity[i3] = velocityX;
+      data.velocity[i3 + 1] = velocityY;
+      data.driftLife[i] = life;
+      data.cooldown[i] = dotCooldown;
+    }
+
+    const position = points.geometry.getAttribute('position') as BufferAttribute;
+    position.needsUpdate = true;
+  });
+
+  return (
+    <points ref={pointsRef} geometry={geometry}>
+      <pointsMaterial
+        color={color}
+        size={dotSize}
+        sizeAttenuation={false}
+        transparent
+        opacity={0.38}
+        depthWrite={false}
+      />
+    </points>
+  );
 }
 
 export function InteractiveDotGrid({
@@ -37,67 +196,14 @@ export function InteractiveDotGrid({
   dotSize = 1.75,
   color = '#CC8BED',
 }: InteractiveDotGridProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const dotsRef = useRef<Dot[]>([]);
-  const animationRef = useRef<number | null>(null);
   const pointerRef = useRef({ x: 0, y: 0, vx: 0, vy: 0, speed: 0, active: false });
-  const lastPointerRef = useRef({ x: 0, y: 0, t: 0, seeded: false });
+  const moveStateRef = useRef({ lastTime: 0, lastX: 0, lastY: 0, seeded: false });
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
+    const handleMove = (event: PointerEvent) => {
+      const container = containerRef.current;
+      if (!container) return;
 
-    const context = canvas.getContext('2d');
-    if (!context) return;
-
-    const pointer = pointerRef.current;
-    let width = 0;
-    let height = 0;
-
-    const buildDots = () => {
-      const columns = Math.max(12, Math.floor(width / spacingPx) + 1);
-      const rows = Math.max(8, Math.floor(height / spacingPx) + 1);
-      const dots: Dot[] = [];
-
-      for (let row = 0; row < rows; row += 1) {
-        for (let column = 0; column < columns; column += 1) {
-          const x = (column / Math.max(1, columns - 1)) * width;
-          const y = (row / Math.max(1, rows - 1)) * height;
-
-          dots.push({
-            baseX: x,
-            baseY: y,
-            x,
-            y,
-            vx: 0,
-            vy: 0,
-            phase: Math.random() * Math.PI * 2,
-            jitter: 0.45 + Math.random() * 0.8,
-            cooldown: 0,
-            life: 0,
-          });
-        }
-      }
-
-      dotsRef.current = dots;
-    };
-
-    const resize = () => {
-      const rect = container.getBoundingClientRect();
-      width = Math.max(1, Math.floor(rect.width));
-      height = Math.max(1, Math.floor(rect.height));
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.8);
-
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      buildDots();
-    };
-
-    const onMove = (event: PointerEvent) => {
       const rect = container.getBoundingClientRect();
       const inside =
         event.clientX >= rect.left &&
@@ -106,147 +212,65 @@ export function InteractiveDotGrid({
         event.clientY <= rect.bottom;
 
       if (!inside) {
-        pointer.active = false;
-        pointer.speed *= 0.86;
+        pointerRef.current.active = false;
+        pointerRef.current.speed *= 0.9;
         return;
       }
 
       const now = performance.now();
-      const last = lastPointerRef.current;
-      if (!last.seeded) {
-        last.x = event.clientX;
-        last.y = event.clientY;
-        last.t = now;
-        last.seeded = true;
+      const moveState = moveStateRef.current;
+      if (!moveState.seeded) {
+        moveState.lastTime = now;
+        moveState.lastX = event.clientX;
+        moveState.lastY = event.clientY;
+        moveState.seeded = true;
       }
 
-      const dt = Math.max(8, now - last.t);
-      const vx = ((event.clientX - last.x) / dt) * 1000;
-      const vy = ((event.clientY - last.y) / dt) * 1000;
+      const dt = Math.max(8, now - moveState.lastTime);
+      const prevX = moveState.lastX;
+      const prevY = moveState.lastY;
+      const vx = ((event.clientX - prevX) / dt) * 1000;
+      const vy = ((event.clientY - prevY) / dt) * 1000;
 
-      last.x = event.clientX;
-      last.y = event.clientY;
-      last.t = now;
+      moveState.lastTime = now;
+      moveState.lastX = event.clientX;
+      moveState.lastY = event.clientY;
 
-      pointer.x = event.clientX - rect.left;
-      pointer.y = event.clientY - rect.top;
-      pointer.vx = vx;
-      pointer.vy = vy;
-      pointer.speed = Math.min(2400, Math.hypot(vx, vy));
-      pointer.active = true;
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+
+      pointerRef.current.x = x;
+      pointerRef.current.y = y;
+      pointerRef.current.vx = vx;
+      pointerRef.current.vy = vy;
+      pointerRef.current.speed = Math.min(3200, Math.hypot(vx, vy));
+      pointerRef.current.active = true;
     };
 
-    const onLeave = () => {
-      pointer.active = false;
-      pointer.speed = 0;
+    const handleLeave = () => {
+      pointerRef.current.active = false;
+      pointerRef.current.speed = 0;
     };
 
-    let prevTime = performance.now();
-    const draw = (time: number) => {
-      const deltaSeconds = Math.min((time - prevTime) / 1000, 0.033);
-      prevTime = time;
-
-      context.clearRect(0, 0, width, height);
-      context.fillStyle = hexToRgba(color, 0.38);
-
-      const influenceRadius = Math.max(width, height) * 0.09;
-      const repelStrength = 0.46;
-      const baseSpring = 0.05;
-      const damping = 0.972;
-      const maxSpeed = 2.7;
-
-      for (const dot of dotsRef.current) {
-        if (pointer.active) {
-          const dx = dot.x - pointer.x;
-          const dy = dot.y - pointer.y;
-          const distance = Math.hypot(dx, dy);
-
-          if (distance < influenceRadius && dot.cooldown <= 0) {
-            const t = 1 - distance / influenceRadius;
-            const invDistance = 1 / Math.max(distance, 0.001);
-            const radialX = dx * invDistance;
-            const radialY = dy * invDistance;
-            const tangentX = -radialY;
-            const tangentY = radialX;
-
-            const pointerSpeed = Math.min(1, pointer.speed / 1400);
-            const pointerMagnitudeInv = 1 / Math.max(Math.hypot(pointer.vx, pointer.vy), 0.001);
-            const pointerDirX = pointer.vx * pointerMagnitudeInv;
-            const pointerDirY = pointer.vy * pointerMagnitudeInv;
-
-            const randomX = Math.cos(dot.phase + time * 0.0008);
-            const randomY = Math.sin(dot.phase + time * 0.0008);
-
-            const scatterX = radialX * 0.22 + tangentX * 0.42 + randomX * 0.26 + pointerDirX * 0.1;
-            const scatterY = radialY * 0.22 + tangentY * 0.42 + randomY * 0.26 + pointerDirY * 0.1;
-
-            const impulse = (0.5 + pointerSpeed * 0.6) * t * repelStrength * dot.jitter;
-            dot.vx += scatterX * impulse;
-            dot.vy += scatterY * impulse;
-            dot.life = Math.max(dot.life, 0.72 + t * 0.2);
-            dot.cooldown = 0.09 + Math.random() * 0.18;
-          }
-        }
-
-        dot.cooldown = Math.max(0, dot.cooldown - deltaSeconds);
-        dot.life *= 0.992;
-
-        const wander = dot.life * 0.65 * dot.jitter;
-        const driftX = Math.sin(time * 0.00075 + dot.phase) * wander;
-        const driftY = Math.cos(time * 0.00068 + dot.phase * 1.4) * wander;
-
-        dot.vx += driftX * deltaSeconds;
-        dot.vy += driftY * deltaSeconds;
-
-        const springStrength = baseSpring + (1 - dot.life) * 0.08;
-        dot.vx += (dot.baseX - dot.x) * springStrength * deltaSeconds * 60;
-        dot.vy += (dot.baseY - dot.y) * springStrength * deltaSeconds * 60;
-
-        const speed = Math.hypot(dot.vx, dot.vy);
-        if (speed > maxSpeed) {
-          const clamp = maxSpeed / speed;
-          dot.vx *= clamp;
-          dot.vy *= clamp;
-        }
-
-        dot.vx *= damping;
-        dot.vy *= damping;
-        dot.x += dot.vx;
-        dot.y += dot.vy;
-
-        context.beginPath();
-        context.arc(dot.x, dot.y, dotSize, 0, Math.PI * 2);
-        context.fill();
-      }
-
-      animationRef.current = window.requestAnimationFrame(draw);
-    };
-
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(container);
-    resize();
-
-    window.addEventListener('pointermove', onMove, { passive: true });
-    window.addEventListener('pointerleave', onLeave);
-
-    animationRef.current = window.requestAnimationFrame(draw);
+    window.addEventListener('pointermove', handleMove, { passive: true });
+    window.addEventListener('pointerleave', handleLeave);
 
     return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerleave', onLeave);
-      if (animationRef.current) {
-        window.cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerleave', handleLeave);
     };
-  }, [containerRef, spacingPx, dotSize, color]);
+  }, [containerRef]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 pointer-events-none"
-      aria-hidden="true"
-    />
+    <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+      <Canvas
+        orthographic
+        camera={{ zoom: 80, position: [0, 0, 10] }}
+        dpr={[1, 1.6]}
+        gl={{ antialias: true, alpha: true }}
+      >
+        <DotFieldInner pointerRef={pointerRef} spacingPx={spacingPx} dotSize={dotSize} color={color} />
+      </Canvas>
+    </div>
   );
 }

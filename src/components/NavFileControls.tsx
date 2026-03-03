@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { useDrawingContext, PAGE_MARGIN } from '../context/DrawingContext';
+import React, { useRef, useState, useEffect } from 'react';
+import { useDrawingContext } from '../context/DrawingContext';
 import { useProjects } from '../context/ProjectContext';
 import { Save, Upload, Download, FileJson, Image as ImageIcon, FileCode, FileText, ChevronLeft } from 'lucide-react';
 
@@ -22,6 +22,7 @@ export function NavFileControls({ activeKey, onToggle, onCloseAll, showNotice }:
   const [pdfMode, setPdfMode] = useState<'all' | 'current' | 'range'>('all');
   const [pdfFrom, setPdfFrom] = useState(1);
   const [pdfTo, setPdfTo] = useState(state.totalPages);
+  const getErrorMessage = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
   // Sanitized project name for filenames
   const baseName = (currentProject?.name || 'drawing').replace(/[^a-zA-Z0-9_\- ]/g, '').trim() || 'drawing';
@@ -49,8 +50,8 @@ export function NavFileControls({ activeKey, onToggle, onCloseAll, showNotice }:
       downloadBlob(json, `${baseName}.json`);
       showNotice('success', 'Project saved successfully');
       onCloseAll();
-    } catch (e: any) {
-      showNotice('error', e?.message || 'Save failed');
+    } catch (error: unknown) {
+      showNotice('error', getErrorMessage(error, 'Save failed'));
     }
   };
 
@@ -69,8 +70,8 @@ export function NavFileControls({ activeKey, onToggle, onCloseAll, showNotice }:
       dispatch({ type: 'REPLACE_ELEMENTS', elements: normalized });
       showNotice('success', 'Project loaded successfully');
       onCloseAll();
-    } catch (err: any) {
-      showNotice('error', err?.message || 'Invalid project file');
+    } catch (error: unknown) {
+      showNotice('error', getErrorMessage(error, 'Invalid project file'));
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -83,7 +84,7 @@ export function NavFileControls({ activeKey, onToggle, onCloseAll, showNotice }:
       exportCanvasToPNG(canvas, `${baseName}.png`);
       showNotice('success', 'Exported as PNG');
       onCloseAll();
-    }).catch((e: any) => showNotice('error', e?.message || 'PNG export failed'));
+    }).catch((error: unknown) => showNotice('error', getErrorMessage(error, 'PNG export failed')));
   };
 
   const handleExportSvg = () => {
@@ -94,7 +95,7 @@ export function NavFileControls({ activeKey, onToggle, onCloseAll, showNotice }:
       downloadBlob(svg, `${baseName}.svg`, 'image/svg+xml');
       showNotice('success', 'Exported as SVG');
       onCloseAll();
-    }).catch((e: any) => showNotice('error', e?.message || 'SVG export failed'));
+    }).catch((error: unknown) => showNotice('error', getErrorMessage(error, 'SVG export failed')));
   };
 
   const handleExportPdf = async () => {
@@ -117,8 +118,8 @@ export function NavFileControls({ activeKey, onToggle, onCloseAll, showNotice }:
       showNotice('success', `Exported ${count} page${count > 1 ? 's' : ''} as PDF`);
       setPdfPanel(false);
       onCloseAll();
-    } catch (e: any) {
-      showNotice('error', e?.message || 'PDF export failed');
+    } catch (error: unknown) {
+      showNotice('error', getErrorMessage(error, 'PDF export failed'));
     }
   };
 

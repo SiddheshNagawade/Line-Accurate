@@ -166,7 +166,7 @@ function drawingReducer(state: DrawingState, action: DrawingAction): DrawingStat
     case 'SET_TOOL':
       return { ...state, currentTool: action.tool, selectedElementIds: [], editingElement: null };
     
-    case 'ADD_ELEMENT':
+    case 'ADD_ELEMENT': {
       const newElements = [...state.elements, action.element];
       return {
         ...state,
@@ -174,14 +174,16 @@ function drawingReducer(state: DrawingState, action: DrawingAction): DrawingStat
         history: [...state.history.slice(0, state.historyIndex + 1), { elements: newElements, totalPages: state.totalPages }],
         historyIndex: state.historyIndex + 1,
       };
+    }
     
-    case 'UPDATE_ELEMENT':
+    case 'UPDATE_ELEMENT': {
       const updatedElements = state.elements.map(el =>
         el.id === action.id ? { ...el, ...action.element } : el
       );
       return { ...state, elements: updatedElements };
+    }
     
-    case 'DELETE_ELEMENTS':
+    case 'DELETE_ELEMENTS': {
       const filteredElements = state.elements.filter(el => !action.ids.includes(el.id));
       return {
         ...state,
@@ -190,6 +192,7 @@ function drawingReducer(state: DrawingState, action: DrawingAction): DrawingStat
         history: [...state.history.slice(0, state.historyIndex + 1), { elements: filteredElements, totalPages: state.totalPages }],
         historyIndex: state.historyIndex + 1,
       };
+    }
     
     case 'REPLACE_ELEMENTS': {
       const next = action.elements;
@@ -473,10 +476,11 @@ interface DrawingStore {
 }
 const DrawingStoreContext = createContext<DrawingStore | null>(null);
 
-export function DrawingContextProvider({ children, projectId }: { children: ReactNode; projectId?: string }) {
+export function DrawingContextProvider({ children, projectId: _projectId }: { children: ReactNode; projectId?: string }) {
+  void _projectId;
   const [state, dispatch] = useReducer(drawingReducer, initialState);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('unsaved');
-  const [lastSaveTime, setLastSaveTime] = useState<number | null>(null);
+  const [saveStatus] = useState<SaveStatus>('unsaved');
+  const [lastSaveTime] = useState<number | null>(null);
 
   // --- Selector store wiring ---
   const stateRef = useRef<DrawingState>(state);

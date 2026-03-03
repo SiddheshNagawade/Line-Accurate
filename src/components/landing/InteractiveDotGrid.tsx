@@ -10,15 +10,36 @@ type InteractiveDotGridProps = {
 };
 
 type DotFieldInnerProps = {
-  pointerRef: MutableRefObject<{ x: number; y: number; vx: number; vy: number; speed: number; active: boolean; lastMoveAt: number }>;
+  pointerRef: MutableRefObject<{
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    speed: number;
+    active: boolean;
+    lastMoveAt: number;
+    isDragging: boolean;
+  }>;
   spacingPx: number;
   dotSize: number;
   color: string;
 };
 
+function hexToRgb01(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '');
+  const full = clean.length === 3 ? clean.split('').map((ch) => ch + ch).join('') : clean;
+  const r = parseInt(full.slice(0, 2), 16) / 255;
+  const g = parseInt(full.slice(2, 4), 16) / 255;
+  const b = parseInt(full.slice(4, 6), 16) / 255;
+  return [r, g, b];
+}
+
 function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerProps) {
   const pointsRef = useRef<Points>(null);
+  const hoverPointsRef = useRef<Points>(null);
   const { size, viewport } = useThree();
+  const baseRgb = useMemo(() => hexToRgb01(color), [color]);
+  const hoverRgb = useMemo<[number, number, number]>(() => [0.97, 0.92, 1], []);
 
   const data = useMemo(() => {
     const columns = Math.max(12, Math.floor(size.width / spacingPx) + 1);
@@ -32,6 +53,10 @@ function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerP
     const phase = new Float32Array(count);
     const jitter = new Float32Array(count);
     const cooldown = new Float32Array(count);
+    const hoverIntensity = new Float32Array(count);
+    const colors = new Float32Array(count * 3);
+    const hoverPositions = new Float32Array(count * 3);
+    const hoverColors = new Float32Array(count * 3);
 
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < columns; col += 1) {
@@ -57,23 +82,59 @@ function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerP
         phase[index] = Math.random() * Math.PI * 2;
         jitter[index] = 0.45 + Math.random() * 0.8;
         cooldown[index] = 0;
+        hoverIntensity[index] = 0;
+
+        colors[i3] = baseRgb[0];
+        colors[i3 + 1] = baseRgb[1];
+        colors[i3 + 2] = baseRgb[2];
+
+        hoverPositions[i3] = 0;
+        hoverPositions[i3 + 1] = 0;
+        hoverPositions[i3 + 2] = 0;
+
+        hoverColors[i3] = hoverRgb[0];
+        hoverColors[i3 + 1] = hoverRgb[1];
+        hoverColors[i3 + 2] = hoverRgb[2];
       }
     }
 
-    return { base, current, velocity, driftLife, phase, jitter, cooldown, count };
-  }, [size.width, size.height, spacingPx, viewport.width, viewport.height]);
+    return {
+      base,
+      current,
+      velocity,
+      driftLife,
+      phase,
+      jitter,
+      cooldown,
+      hoverIntensity,
+      colors,
+      hoverPositions,
+      hoverColors,
+      count,
+    };
+  }, [size.width, size.height, spacingPx, viewport.width, viewport.height, baseRgb, hoverRgb]);
 
   const geometry = useMemo(() => {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(data.current, 3));
+    g.setAttribute('color', new BufferAttribute(data.colors, 3));
+    return g;
+  }, [data]);
+
+  const hoverGeometry = useMemo(() => {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(data.hoverPositions, 3));
+    g.setAttribute('color', new BufferAttribute(data.hoverColors, 3));
+    g.setDrawRange(0, 0);
     return g;
   }, [data]);
 
   useEffect(() => {
     return () => {
       geometry.dispose();
+      hoverGeometry.dispose();
     };
-  }, [geometry]);
+  }, [geometry, hoverGeometry]);
 
   useFrame((state, delta) => {
     const points = pointsRef.current;
@@ -84,12 +145,13 @@ function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerP
     const pointerY = (pointer.y * viewport.height) / 2;
     const pointerIsStable = pointer.active && pointer.speed < 28 && performance.now() - pointer.lastMoveAt > 170;
 
-    const influenceRadius = Math.max(viewport.width, viewport.height) * 0.14;
-    const repelStrength = 0.78;
+    const influenceRadius = Math.max(viewport.width, viewport.height) * 0.12;
+    const repelStrength = 0.34;
     const baseSpring = 0.05;
-    const damping = 0.972;
-    const maxSpeed = 0.072;
+    const damping = 0.95;
+    const maxSpeed = 0.038;
     const dt = Math.min(delta, 0.033);
+    let hoverCount = 0;
 
     for (let i = 0; i < data.count; i += 1) {
       const i3 = i * 3;
@@ -102,6 +164,7 @@ function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerP
       let velocityY = data.velocity[i3 + 1];
       let life = data.driftLife[i];
       let dotCooldown = data.cooldown[i];
+      let intensity = data.hoverIntensity[i];
 
       if (pointer.active && !pointerIsStable) {
         const dx = currentX - pointerX;
@@ -114,39 +177,28 @@ function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerP
           const radialX = dx * inv;
           const radialY = dy * inv;
 
-          const tangentX = -radialY;
-          const tangentY = radialX;
-
-          const pointerSpeed = Math.min(1, pointer.speed / 1400);
+          const pointerSpeed = Math.min(1, pointer.speed / 1800);
           const pointerInv = 1 / Math.max(Math.hypot(pointer.vx, pointer.vy), 0.001);
           const pointerDirX = pointer.vx * pointerInv;
           const pointerDirY = pointer.vy * pointerInv;
 
-          const randAngle = data.phase[i] + state.clock.elapsedTime * 0.8;
-          const randomX = Math.cos(randAngle);
-          const randomY = Math.sin(randAngle);
+          const flowX = radialX * 0.92 + pointerDirX * 0.08;
+          const flowY = radialY * 0.92 + pointerDirY * 0.08;
 
-          const scatterX = radialX * 0.22 + tangentX * 0.42 + randomX * 0.26 + pointerDirX * 0.1;
-          const scatterY = radialY * 0.22 + tangentY * 0.42 + randomY * 0.26 + pointerDirY * 0.1;
-
-          const impulse = (0.22 + pointerSpeed * 0.24) * t * repelStrength * data.jitter[i];
-          velocityX += scatterX * impulse;
-          velocityY += scatterY * impulse;
-          life = Math.max(life, 0.9 + t * 0.32);
-          dotCooldown = 0.04 + Math.random() * 0.1;
+          const impulse = (0.05 + pointerSpeed * 0.07) * t * repelStrength * data.jitter[i];
+          velocityX += flowX * impulse;
+          velocityY += flowY * impulse;
+          life = Math.max(life, 0.24 + t * 0.12);
+          dotCooldown = 0.03 + Math.random() * 0.07;
+          intensity = Math.min(1, intensity + t * 0.32);
         }
       }
 
       dotCooldown = Math.max(0, dotCooldown - dt);
-      life *= pointerIsStable ? 0.95 : 0.992;
-      const wander = (pointerIsStable ? 0 : life * 0.013 * data.jitter[i]);
-      const driftX = Math.sin(state.clock.elapsedTime * (0.75 + data.jitter[i] * 0.45) + data.phase[i]) * wander;
-      const driftY = Math.cos(state.clock.elapsedTime * (0.68 + data.jitter[i] * 0.35) + data.phase[i] * 1.4) * wander;
+      life *= pointerIsStable ? 0.88 : 0.94;
+      intensity *= pointerIsStable ? 0.9 : 0.955;
 
-      velocityX += driftX;
-      velocityY += driftY;
-
-      const springStrength = baseSpring + (1 - life) * (pointerIsStable ? 0.2 : 0.08);
+      const springStrength = baseSpring + (1 - life) * (pointerIsStable ? 0.24 : 0.13);
       velocityX += (baseX - currentX) * springStrength * dt * 60;
       velocityY += (baseY - currentY) * springStrength * dt * 60;
 
@@ -171,23 +223,65 @@ function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerP
       data.velocity[i3 + 1] = velocityY;
       data.driftLife[i] = life;
       data.cooldown[i] = dotCooldown;
+      data.hoverIntensity[i] = intensity;
+
+      const glow = Math.max(0, Math.min(1, intensity));
+      data.colors[i3] = baseRgb[0] + (hoverRgb[0] - baseRgb[0]) * glow;
+      data.colors[i3 + 1] = baseRgb[1] + (hoverRgb[1] - baseRgb[1]) * glow;
+      data.colors[i3 + 2] = baseRgb[2] + (hoverRgb[2] - baseRgb[2]) * glow;
+
+      if (glow > 0.08) {
+        const hi3 = hoverCount * 3;
+        data.hoverPositions[hi3] = currentX;
+        data.hoverPositions[hi3 + 1] = currentY;
+        data.hoverPositions[hi3 + 2] = 0;
+
+        const hg = Math.min(1, glow * 1.15);
+        data.hoverColors[hi3] = hoverRgb[0] * hg;
+        data.hoverColors[hi3 + 1] = hoverRgb[1] * hg;
+        data.hoverColors[hi3 + 2] = hoverRgb[2] * hg;
+        hoverCount += 1;
+      }
     }
 
     const position = points.geometry.getAttribute('position') as BufferAttribute;
     position.needsUpdate = true;
+    const colorAttr = points.geometry.getAttribute('color') as BufferAttribute;
+    colorAttr.needsUpdate = true;
+
+    const hoverPoints = hoverPointsRef.current;
+    if (hoverPoints) {
+      const hPos = hoverPoints.geometry.getAttribute('position') as BufferAttribute;
+      const hColor = hoverPoints.geometry.getAttribute('color') as BufferAttribute;
+      hPos.needsUpdate = true;
+      hColor.needsUpdate = true;
+      hoverPoints.geometry.setDrawRange(0, hoverCount);
+    }
   });
 
   return (
-    <points ref={pointsRef} geometry={geometry}>
-      <pointsMaterial
-        color={color}
-        size={dotSize}
-        sizeAttenuation={false}
-        transparent
-        opacity={0.38}
-        depthWrite={false}
-      />
-    </points>
+    <>
+      <points ref={pointsRef} geometry={geometry}>
+        <pointsMaterial
+          vertexColors
+          size={dotSize}
+          sizeAttenuation={false}
+          transparent
+          opacity={0.4}
+          depthWrite={false}
+        />
+      </points>
+      <points ref={hoverPointsRef} geometry={hoverGeometry}>
+        <pointsMaterial
+          vertexColors
+          size={dotSize * 1.55}
+          sizeAttenuation={false}
+          transparent
+          opacity={0.34}
+          depthWrite={false}
+        />
+      </points>
+    </>
   );
 }
 
@@ -197,13 +291,13 @@ export function InteractiveDotGrid({
   dotSize = 1.75,
   color = '#CC8BED',
 }: InteractiveDotGridProps) {
-  const pointerRef = useRef({ x: 0, y: 0, vx: 0, vy: 0, speed: 0, active: false, lastMoveAt: 0 });
+  const pointerRef = useRef({ x: 0, y: 0, vx: 0, vy: 0, speed: 0, active: false, lastMoveAt: 0, isDragging: false });
   const moveStateRef = useRef({ lastTime: 0, lastX: 0, lastY: 0, seeded: false });
 
   useEffect(() => {
-    const handleMove = (event: PointerEvent) => {
+    const setPointerFromEvent = (event: PointerEvent) => {
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) return false;
 
       const rect = container.getBoundingClientRect();
       const inside =
@@ -212,10 +306,11 @@ export function InteractiveDotGrid({
         event.clientY >= rect.top &&
         event.clientY <= rect.bottom;
 
-      if (!inside) {
+      const isTouchLike = event.pointerType === 'touch' || event.pointerType === 'pen';
+      if (!inside || (isTouchLike && !pointerRef.current.isDragging)) {
         pointerRef.current.active = false;
         pointerRef.current.speed *= 0.9;
-        return;
+        return false;
       }
 
       const now = performance.now();
@@ -247,19 +342,45 @@ export function InteractiveDotGrid({
       pointerRef.current.speed = Math.min(3200, Math.hypot(vx, vy));
       pointerRef.current.lastMoveAt = now;
       pointerRef.current.active = true;
+      return true;
+    };
+
+    const handleDown = (event: PointerEvent) => {
+      if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+        pointerRef.current.isDragging = true;
+        setPointerFromEvent(event);
+      }
+    };
+
+    const handleUp = () => {
+      pointerRef.current.isDragging = false;
+      pointerRef.current.active = false;
+      pointerRef.current.speed = 0;
+      pointerRef.current.lastMoveAt = performance.now();
+    };
+
+    const handleMove = (event: PointerEvent) => {
+      setPointerFromEvent(event);
     };
 
     const handleLeave = () => {
       pointerRef.current.active = false;
       pointerRef.current.speed = 0;
       pointerRef.current.lastMoveAt = performance.now();
+      pointerRef.current.isDragging = false;
     };
 
+    window.addEventListener('pointerdown', handleDown, { passive: true });
     window.addEventListener('pointermove', handleMove, { passive: true });
+    window.addEventListener('pointerup', handleUp, { passive: true });
+    window.addEventListener('pointercancel', handleUp, { passive: true });
     window.addEventListener('pointerleave', handleLeave);
 
     return () => {
+      window.removeEventListener('pointerdown', handleDown);
       window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('pointercancel', handleUp);
       window.removeEventListener('pointerleave', handleLeave);
     };
   }, [containerRef]);

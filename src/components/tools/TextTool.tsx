@@ -44,6 +44,11 @@ export function TextTool({
     if (!canvas) return;
 
     const handlePointerDown = (e: PointerEvent) => {
+      // In pencil mode, only allow pen pointers for drawing
+      if (state.pencilMode && e.pointerType === 'touch') {
+        return;
+      }
+
       e.preventDefault();
       const point = getCanvasPoint(e);
       

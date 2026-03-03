@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProjects } from '../context/ProjectContext';
@@ -12,15 +12,29 @@ export function Dashboard() {
   const [newProjectName, setNewProjectName] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dashboardReady, setDashboardReady] = useState(false);
+  const [newlyCreatedProjectId, setNewlyCreatedProjectId] = useState<string | null>(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setDashboardReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   const handleCreateProject = () => {
-    if (newProjectName.trim()) {
-      const project = createProject(newProjectName);
-      setNewProjectName('');
-      setShowCreateModal(false);
+    if (!newProjectName.trim() || isCreatingProject) return;
+
+    setIsCreatingProject(true);
+    const project = createProject(newProjectName);
+    setNewlyCreatedProjectId(project.id);
+    setNewProjectName('');
+    setShowCreateModal(false);
+
+    window.setTimeout(() => {
       navigate(`/app/${project.id}`);
-    }
+      setIsCreatingProject(false);
+    }, 320);
   };
 
   const handleOpenProject = (projectId: string) => {
@@ -51,8 +65,9 @@ export function Dashboard() {
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-[#0f0f12] via-[#1a1a1f] to-[#0f0f12]">
       {/* Header */}
-      <header className="shrink-0 z-30 glass-panel border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <header className="shrink-0 z-30">
+        <div className="glass-panel rounded-b-2xl border-b border-x border-white/20 shadow-lg">
+          <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-[#cc8bed] to-[#9966cc] rounded-lg flex items-center justify-center shadow-lg shadow-[#cc8bed]/30">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -104,6 +119,7 @@ export function Dashboard() {
               </div>
             )}
           </div>
+          </div>
         </div>
       </header>
 
@@ -119,7 +135,8 @@ export function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
           <button
             onClick={() => setShowCreateModal(true)}
-            className="group relative h-48 rounded-xl border-2 border-dashed border-white/20 hover:border-[#cc8bed]/50 bg-white/5 hover:bg-white/10 transition-all duration-200 flex items-center justify-center cursor-pointer"
+            className={`group relative h-48 rounded-xl border-2 border-dashed border-white/20 hover:border-[#cc8bed]/50 bg-white/5 hover:bg-white/10 transition-all duration-200 flex items-center justify-center cursor-pointer dashboard-card-enter ${dashboardReady ? 'dashboard-card-ready' : ''}`}
+            style={{ ['--card-delay' as any]: '0ms' }}
           >
             <div className="flex flex-col items-center space-y-2 group-hover:scale-110 transition-transform">
               <div className="w-12 h-12 rounded-lg bg-[#cc8bed]/20 group-hover:bg-[#cc8bed]/30 flex items-center justify-center transition">
@@ -132,11 +149,12 @@ export function Dashboard() {
           </button>
 
           {/* Project Cards */}
-          {projects.map((project) => (
+          {projects.map((project, projectIndex) => (
             <div
               key={project.id}
               onClick={() => handleOpenProject(project.id)}
-              className="group relative h-48 rounded-xl glass-panel border border-white/10 hover:border-[#cc8bed]/50 overflow-hidden cursor-pointer hover:shadow-lg hover:shadow-[#cc8bed]/20 transition-all duration-200"
+              className={`group relative h-48 rounded-xl glass-panel border border-white/10 hover:border-[#cc8bed]/50 overflow-hidden cursor-pointer hover:shadow-lg hover:shadow-[#cc8bed]/20 transition-all duration-200 dashboard-card-enter ${dashboardReady ? 'dashboard-card-ready' : ''} ${newlyCreatedProjectId === project.id ? 'project-pop-bounce' : ''}`}
+              style={{ ['--card-delay' as any]: `${Math.min((projectIndex + 1) * 60, 420)}ms` }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-[#cc8bed]/5 to-transparent opacity-0 group-hover:opacity-100 transition" />
               

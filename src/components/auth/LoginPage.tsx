@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn } from 'lucide-react';
+import { ArrowLeft, LogIn } from 'lucide-react';
 
 export function LoginPage() {
   const { signIn } = useAuth();
@@ -11,6 +11,14 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +37,15 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen w-screen flex items-center justify-center bg-gradient-to-br from-[#0f0f12] via-[#1a1a1f] to-[#0f0f12]">
+      <button
+        type="button"
+        onClick={handleBack}
+        aria-label="Go back"
+        className="fixed top-5 left-5 z-20 p-2.5 rounded-xl text-white hover:bg-white/10 transition"
+      >
+        <ArrowLeft size={24} strokeWidth={2.5} />
+      </button>
+
       <div className="w-full max-w-md px-6">
         {/* Logo and Title */}
         <div className="text-center mb-8">

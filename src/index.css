@@ -3,13 +3,30 @@
 @tailwind utilities;
 
 :root {
-  --bg: #ffffff;
+  --bg: #2a2a2e;
   --text: #ffffff;
   --panel: rgba(18, 18, 24, 0.95);
   --accent: #cc8bed;
   --text-muted: #9ca3af;
   --border: rgba(255, 255, 255, 0.08);
   --accent-hover: #d8abf0;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    background: var(--bg) !important;
+    background-color: var(--bg) !important;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
 }
 
 /* Route transitions */
@@ -68,7 +85,7 @@ body,
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-top: 1px solid rgba(255, 255, 255, 0.15);
   border-left: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
+  box-shadow:
     0 4px 24px -1px rgba(0, 0, 0, 0.2),
     0 0 0 1px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
@@ -147,4 +164,99 @@ body {
 }
 .btn-accent:hover {
   background-color: var(--accent-hover);
+}
+
+/* Dashboard entrance animations */
+@keyframes dashboardCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes projectPopBounce {
+  0% {
+    transform: scale(0.75);
+  }
+  45% {
+    transform: scale(1.08);
+  }
+  70% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.dashboard-card-enter {
+  opacity: 0;
+  transform: translateY(-16px) scale(0.96);
+}
+
+.dashboard-card-ready {
+  animation: dashboardCardIn 460ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: var(--card-delay, 0ms);
+}
+
+.project-pop-bounce {
+  animation: projectPopBounce 540ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+
+/* Editor chrome-in animation (canvas visible first, panels slide in) */
+.editor-chrome {
+  will-change: transform;
+  transition-property: transform;
+  transition-duration: 420ms;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.editor-from-left {
+  transform: translateX(-20px);
+}
+
+.editor-from-right {
+  transform: translateX(20px);
+}
+
+.editor-from-top {
+  transform: translateY(-14px);
+}
+
+.editor-from-bottom {
+  transform: translateY(14px);
+}
+
+.editor-speed-fast {
+  transition-duration: 220ms;
+}
+
+.editor-speed-slow {
+  transition-duration: 520ms;
+}
+
+.editor-chrome-ready {
+  transform: translate(0, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-card-enter,
+  .dashboard-card-ready,
+  .project-pop-bounce,
+  .editor-chrome,
+  .editor-from-left,
+  .editor-from-right,
+  .editor-from-top,
+  .editor-from-bottom,
+  .editor-speed-fast,
+  .editor-speed-slow,
+  .editor-chrome-ready {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
 }

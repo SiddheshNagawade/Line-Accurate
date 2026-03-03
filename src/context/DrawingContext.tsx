@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useRef, ReactNode, useState, useMemo } from 'react';
-import { saveToCache, loadFromCache, AutoSaveData, getTimeSinceString } from '../utils/autoSave';
+import React, { createContext, useContext, useReducer, useLayoutEffect, useEffect, useRef, ReactNode, useState, useMemo, useCallback, useSyncExternalStore } from 'react';
 
 export type Tool = 'select' | 'line' | 'angle' | 'freehand' | 'eraser' | 'text';
 export type Units = 'mm' | 'cm' | 'in' | 'ft';
@@ -85,6 +84,7 @@ export interface DrawingState {
   pageHeight: number; // A4 height in pixels
   minZoom: number; // dynamically computed lower bound for zoom based on viewport/content
   selectionRect: { x: number; y: number; w: number; h: number } | null; // marquee selection rectangle
+  pencilMode: boolean; // When true, only stylus/pen touches draw; fingers pan/scroll. When false, both can draw.
 }
 
 type DrawingAction =
@@ -120,7 +120,7 @@ type DrawingAction =
   | { type: 'SET_MIN_ZOOM'; minZoom: number }
   | { type: 'SET_SELECTION_RECT'; rect: { x: number; y: number; w: number; h: number } | null }
   | { type: 'UPDATE_ELEMENTS_BULK'; ids: string[]; changes: Partial<DrawingElement> }
-  | { type: 'LOAD_AUTOSAVE'; data: AutoSaveData };
+  | { type: 'TOGGLE_PENCIL_MODE'; };
 
 const initialState: DrawingState = {
   currentTool: 'select',
@@ -158,6 +158,7 @@ const initialState: DrawingState = {
   pageHeight: Math.round(A4_HEIGHT_MM * MM_TO_PX), // 1123 pixels
   minZoom: 0.5,
   selectionRect: null,
+  pencilMode: false, // iPad pencil/stylus mode - default off
 };
 
 function drawingReducer(state: DrawingState, action: DrawingAction): DrawingState {
@@ -443,33 +444,15 @@ function drawingReducer(state: DrawingState, action: DrawingAction): DrawingStat
     case 'SET_MIN_ZOOM':
       return { ...state, minZoom: Math.min(1, Math.max(0.1, action.minZoom)) };
 
-    case 'LOAD_AUTOSAVE': {
-      const d = action.data;
-      const restoredTotal = d.totalPages ?? 1;
-      return {
-        ...state,
-        elements: d.elements ?? [],
-        layers: d.layers ?? state.layers,
-        currentLayerId: d.currentLayerId ?? state.currentLayerId,
-        totalPages: restoredTotal,
-        currentPage: d.currentPage ?? 1,
-        toolSettings: d.toolSettings ?? state.toolSettings,
-        gridSize: d.gridSize ?? state.gridSize,
-        gridVisible: d.gridVisible ?? state.gridVisible,
-        snapToGrid: d.snapToGrid ?? state.snapToGrid,
-        units: (d.units as Units) ?? state.units,
-        history: [{ elements: d.elements ?? [], totalPages: restoredTotal }],
-        historyIndex: 0,
-        selectedElementIds: [],
-      };
-    }
+    case 'TOGGLE_PENCIL_MODE':
+      return { ...state, pencilMode: !state.pencilMode };
     
     default:
       return state;
   }
 }
 
-export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'restored';
+export type SaveStatus = 'unsaved';
 
 const DrawingContext = createContext<{
   state: DrawingState;
@@ -478,80 +461,48 @@ const DrawingContext = createContext<{
   lastSaveTime: number | null;
 } | null>(null);
 
+// ---------------------------------------------------------------------------
+// Selector store — exposes a lightweight subscribe/getState API so panel
+// components can subscribe to slices of DrawingState without re-rendering on
+// every high-frequency dispatch (pan, zoom, pointer-move, etc.).
+// ---------------------------------------------------------------------------
+interface DrawingStore {
+  getState: () => DrawingState;
+  subscribe: (listener: () => void) => () => void;
+  dispatch: React.Dispatch<DrawingAction>;
+}
+const DrawingStoreContext = createContext<DrawingStore | null>(null);
+
 export function DrawingContextProvider({ children, projectId }: { children: ReactNode; projectId?: string }) {
   const [state, dispatch] = useReducer(drawingReducer, initialState);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('unsaved');
   const [lastSaveTime, setLastSaveTime] = useState<number | null>(null);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasRestoredRef = useRef(false);
-  const prevElementsRef = useRef<string>('');
 
-  // Restore from cache on first mount
-  useEffect(() => {
-    if (hasRestoredRef.current) return;
-    hasRestoredRef.current = true;
+  // --- Selector store wiring ---
+  const stateRef = useRef<DrawingState>(state);
+  const listenersRef = useRef<Set<() => void>>(new Set());
 
-    loadFromCache(projectId).then((data) => {
-      if (data && data.elements && data.elements.length > 0) {
-        dispatch({ type: 'LOAD_AUTOSAVE', data });
-        setSaveStatus('restored');
-        setLastSaveTime(data.timestamp);
-        // Reset to 'saved' after 3 seconds
-        setTimeout(() => setSaveStatus('saved'), 3000);
-      }
-    }).catch(() => {
-      // ignore restore failures
-    });
-  }, [projectId]);
+  // Synchronously update stateRef and notify subscribers after every state
+  // change, before the browser paints, so getSnapshot() never returns stale data.
+  useLayoutEffect(() => {
+    stateRef.current = state;
+    listenersRef.current.forEach(l => l());
+  }, [state]);
 
-  // Auto-save whenever elements, layers, pages, or settings change (debounced 1.5s)
-  useEffect(() => {
-    const elementsSig = JSON.stringify(state.elements.map(e => e.id));
-    // Skip the very first render to avoid overwriting restored data
-    if (prevElementsRef.current === '' && state.elements.length === 0) {
-      prevElementsRef.current = elementsSig;
-      return;
-    }
-    prevElementsRef.current = elementsSig;
+  const store = useMemo<DrawingStore>(() => ({
+    getState: () => stateRef.current,
+    subscribe: (listener) => {
+      listenersRef.current.add(listener);
+      return () => listenersRef.current.delete(listener);
+    },
+    dispatch,
+  }), [dispatch]);
 
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    setSaveStatus('unsaved');
-
-    saveTimerRef.current = setTimeout(() => {
-      setSaveStatus('saving');
-      const data: AutoSaveData = {
-        elements: state.elements,
-        layers: state.layers,
-        currentLayerId: state.currentLayerId,
-        totalPages: state.totalPages,
-        currentPage: state.currentPage,
-        projectName: 'Project',
-        toolSettings: state.toolSettings,
-        gridSize: state.gridSize,
-        gridVisible: state.gridVisible,
-        snapToGrid: state.snapToGrid,
-        units: state.units,
-        timestamp: Date.now(),
-      };
-      saveToCache(data, projectId).then(() => {
-        setSaveStatus('saved');
-        setLastSaveTime(Date.now());
-      }).catch(() => {
-        setSaveStatus('unsaved');
-      });
-    }, 1500);
-
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [state.elements, state.layers, state.currentLayerId, state.totalPages, state.currentPage, state.toolSettings, state.gridSize, state.gridVisible, state.snapToGrid, state.units, projectId]);
-
-  // Warn before leaving/refreshing
+  // Warn before leaving/refreshing if there are unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (state.elements.length > 0) {
         e.preventDefault();
-        // Modern browsers ignore custom messages but still show a dialog
         e.returnValue = 'You have unsaved work. Are you sure you want to leave?';
         return e.returnValue;
       }
@@ -566,9 +517,11 @@ export function DrawingContextProvider({ children, projectId }: { children: Reac
   );
 
   return (
-    <DrawingContext.Provider value={contextValue}>
-      {children}
-    </DrawingContext.Provider>
+    <DrawingStoreContext.Provider value={store}>
+      <DrawingContext.Provider value={contextValue}>
+        {children}
+      </DrawingContext.Provider>
+    </DrawingStoreContext.Provider>
   );
 }
 
@@ -578,4 +531,44 @@ export function useDrawingContext() {
     throw new Error('useDrawingContext must be used within a DrawingContextProvider');
   }
   return context;
+}
+
+/**
+ * Subscribe to a slice of DrawingState. The component only re-renders when
+ * the selected value changes by reference (===). For primitives this is
+ * automatic; for derived objects, keep the selector referentially stable.
+ *
+ * @example
+ *   const currentTool = useDrawingSelector(s => s.currentTool);
+ *   const layers = useDrawingSelector(s => s.layers);
+ */
+export function useDrawingSelector<T>(selector: (s: DrawingState) => T): T {
+  const store = useContext(DrawingStoreContext);
+  if (!store) throw new Error('useDrawingSelector must be used within DrawingContextProvider');
+
+  const selectorRef = useRef(selector);
+  selectorRef.current = selector;
+
+  // Cache the last result keyed by state reference. If the state object hasn't
+  // changed, return the exact same result reference so useSyncExternalStore
+  // won't trigger a re-render.
+  const cacheRef = useRef<{ state: DrawingState; result: T } | null>(null);
+
+  const getSnapshot = useCallback((): T => {
+    const s = store.getState();
+    const c = cacheRef.current;
+    if (c && c.state === s) return c.result;
+    const result = selectorRef.current(s);
+    cacheRef.current = { state: s, result };
+    return result;
+  }, [store]);
+
+  return useSyncExternalStore(store.subscribe, getSnapshot);
+}
+
+/** Get the dispatch function without subscribing to any state. */
+export function useDrawingDispatch(): React.Dispatch<DrawingAction> {
+  const store = useContext(DrawingStoreContext);
+  if (!store) throw new Error('useDrawingDispatch must be used within DrawingContextProvider');
+  return store.dispatch;
 }

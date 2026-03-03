@@ -1,6 +1,7 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useDrawingContext, Point, DrawingElement, MM_TO_PX, PAGE_MARGIN } from '../context/DrawingContext';
 import { snapToGrid } from '../utils/grid';
+import { Quadtree, getElementBounds, intersectsRect, type SpatialRect } from '../utils/spatialIndex';
 import { LineTool } from './tools/LineTool';
 import { AngleTool } from './tools/AngleTool';
 import { FreehandTool } from './tools/FreehandTool';
@@ -22,8 +23,27 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
   const [lastPanPoint, setLastPanPoint] = useState<Point | null>(null);
   const containerActiveRef = useRef<boolean>(false);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
+  const lodImageCache = useRef<Map<string, HTMLCanvasElement>>(new Map());
   const renderRef = useRef<() => void>(() => {});
   const lastCursorPos = useRef<Point | null>(null);
+  // Two-layer canvas: backingCanvas holds the stable scene (pages+grids+elements).
+  // Main canvas composites: blit backing + active overlay every frame.
+  // backingValidRef = false forces a backing rebuild on the next RAF.
+  const backingCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const backingValidRef = useRef(false);
+
+  // Dynamic instruction visibility state
+  const [showInstructions, setShowInstructions] = useState(false);
+  const instructionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Show instructions and auto-hide after timeout
+  const showInstructionsBriefly = useCallback(() => {
+    setShowInstructions(true);
+    if (instructionTimeoutRef.current) clearTimeout(instructionTimeoutRef.current);
+    instructionTimeoutRef.current = setTimeout(() => {
+      setShowInstructions(false);
+    }, 4000); // Show for 4 seconds then fade
+  }, []);
 
   // Axis-lock state for smooth two-finger panning
   const panAxisRef = useRef<'free' | 'x' | 'y' | null>(null); // null = gesture not started
@@ -45,6 +65,26 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
       height: state.pageHeight
     };
   }, [state.pageWidth, state.pageHeight]);
+
+  const elementSpatialIndex = useMemo(() => {
+    const indexed = state.elements
+      .map((element) => {
+        const bounds = getElementBounds(element);
+        if (!bounds) return null;
+        return { bounds, data: { id: element.id } };
+      })
+      .filter((item): item is { bounds: SpatialRect; data: { id: string } } => item !== null);
+
+    return new Quadtree(indexed);
+  }, [state.elements]);
+
+  const getViewportWorldBounds = useCallback((canvas: HTMLCanvasElement): SpatialRect => {
+    const minX = -state.panOffset.x;
+    const minY = -state.panOffset.y;
+    const maxX = canvas.width / state.zoom - state.panOffset.x;
+    const maxY = canvas.height / state.zoom - state.panOffset.y;
+    return { minX, minY, maxX, maxY };
+  }, [state.panOffset.x, state.panOffset.y, state.zoom]);
 
   // Compute content dimensions (all pages area incl. padding)
   // Top padding = CANVAS_PADDING; bottom padding = just enough for the add-page button (~80px)
@@ -141,11 +181,21 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
   }, [getPageAtPoint, getPageBounds]);
 
   // Draw all pages with boundaries and backgrounds
-  const drawPages = useCallback((ctx: CanvasRenderingContext2D) => {
+  const drawPages = useCallback((ctx: CanvasRenderingContext2D, viewportBounds?: SpatialRect) => {
     ctx.save();
     
     for (let page = 1; page <= state.totalPages; page++) {
       const bounds = getPageBounds(page);
+
+      if (viewportBounds) {
+        const pageRect: SpatialRect = {
+          minX: bounds.x - 8,
+          minY: bounds.y - 20,
+          maxX: bounds.x + bounds.width + 8,
+          maxY: bounds.y + bounds.height + 8,
+        };
+        if (!intersectsRect(viewportBounds, pageRect)) continue;
+      }
       
       // Draw page background (white)
       ctx.fillStyle = '#ffffff';
@@ -187,7 +237,7 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
   }, [state.totalPages, getPageBounds]);
 
   // Draw grid directly as vector paths within each page — stays crisp at any zoom level
-  const drawPageGrids = useCallback((ctx: CanvasRenderingContext2D) => {
+  const drawPageGrids = useCallback((ctx: CanvasRenderingContext2D, viewportBounds?: SpatialRect) => {
     if (!state.gridVisible) return;
 
     const mmToPx = 3.779527559; // 1mm in pixels at 96 DPI
@@ -196,6 +246,15 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
 
     for (let page = 1; page <= state.totalPages; page++) {
       const bounds = getPageBounds(page);
+      if (viewportBounds) {
+        const pageRect: SpatialRect = {
+          minX: bounds.x,
+          minY: bounds.y,
+          maxX: bounds.x + bounds.width,
+          maxY: bounds.y + bounds.height,
+        };
+        if (!intersectsRect(viewportBounds, pageRect)) continue;
+      }
       ctx.save();
       ctx.beginPath();
       ctx.rect(bounds.x, bounds.y, bounds.width, bounds.height);
@@ -468,15 +527,18 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
       
       case 'freehand':
         if (element.points.length > 1) {
+          const lodStep = state.zoom < 0.35 ? 4 : state.zoom < 0.6 ? 2 : 1;
           ctx.beginPath();
           ctx.moveTo(element.points[0].x, element.points[0].y);
-          for (let i = 1; i < element.points.length; i++) {
+          for (let i = lodStep; i < element.points.length; i += lodStep) {
             const prevPoint = element.points[i - 1];
             const currentPoint = element.points[i];
             const midX = (prevPoint.x + currentPoint.x) / 2;
             const midY = (prevPoint.y + currentPoint.y) / 2;
             ctx.quadraticCurveTo(prevPoint.x, prevPoint.y, midX, midY);
           }
+          const last = element.points[element.points.length - 1];
+          if (last) ctx.lineTo(last.x, last.y);
           ctx.stroke();
         }
         break;
@@ -501,12 +563,39 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
             imageCache.current.set(element.imageSrc, img);
             
             // Re-render when image loads
-            img.onload = () => renderRef.current();
+            img.onload = () => {
+              backingValidRef.current = false;
+              renderRef.current();
+            };
           }
           
           // Only draw if image is loaded
           if (img.complete && img.naturalHeight !== 0) {
-            ctx.drawImage(img, element.points[0].x, element.points[0].y, element.imageWidth, element.imageHeight);
+            const lodBucket = state.zoom < 0.4 ? 'low' : state.zoom < 0.8 ? 'mid' : 'full';
+            const lodKey = `${element.id}:${lodBucket}`;
+
+            let source: CanvasImageSource = img;
+            if (lodBucket !== 'full') {
+              let lodCanvas = lodImageCache.current.get(lodKey);
+              if (!lodCanvas) {
+                const scale = lodBucket === 'low' ? 0.25 : 0.5;
+                const w = Math.max(8, Math.round(img.naturalWidth * scale));
+                const h = Math.max(8, Math.round(img.naturalHeight * scale));
+                lodCanvas = document.createElement('canvas');
+                lodCanvas.width = w;
+                lodCanvas.height = h;
+                const lctx = lodCanvas.getContext('2d');
+                if (lctx) {
+                  lctx.imageSmoothingEnabled = true;
+                  lctx.imageSmoothingQuality = 'high';
+                  lctx.drawImage(img, 0, 0, w, h);
+                }
+                lodImageCache.current.set(lodKey, lodCanvas);
+              }
+              source = lodCanvas;
+            }
+
+            ctx.drawImage(source, element.points[0].x, element.points[0].y, element.imageWidth, element.imageHeight);
             
             // Draw selection border if selected
             if (element.selected || state.selectedElementIds.includes(element.id)) {
@@ -558,35 +647,80 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
     ctx.restore();
   }, [state.layers, state.selectedElementIds, state.units, state.zoom, getPageAtPoint, getPageBounds]);
 
-  // Main render function
+  // Main render function — two-layer pipeline:
+  //  1. Backing canvas: pages + grids + committed elements (rebuilt only when invalidated).
+  //  2. Main canvas: blit backing (GPU copy) + active overlays every frame.
+  // This means pointer-move during drawing never repaints the entire scene.
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas with light grey background
-    ctx.fillStyle = '#f5f5f5';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // ── Step 1: Rebuild backing canvas if invalidated ──────────────────────
+    if (!backingValidRef.current) {
+      let backing = backingCanvasRef.current;
+      if (!backing) {
+        backing = document.createElement('canvas');
+        backingCanvasRef.current = backing;
+      }
+      // Match physical pixel dimensions of main canvas
+      if (backing.width !== canvas.width || backing.height !== canvas.height) {
+        backing.width = canvas.width;
+        backing.height = canvas.height;
+      }
+      const bctx = backing.getContext('2d');
+      if (bctx) {
+        const pixelRatio = window.devicePixelRatio || 1;
+        bctx.setTransform(1, 0, 0, 1, 0, 0);
+        bctx.scale(pixelRatio, pixelRatio);
+        // Clear to canvas background colour
+        bctx.fillStyle = '#f5f5f5';
+        bctx.fillRect(0, 0, canvas.width / pixelRatio, canvas.height / pixelRatio);
+        // World transform
+        bctx.save();
+        bctx.scale(state.zoom, state.zoom);
+        bctx.translate(state.panOffset.x, state.panOffset.y);
+        const viewportBounds = getViewportWorldBounds(canvas);
+        const cullMargin = Math.max(24, 24 / state.zoom);
+        const queryBounds: SpatialRect = {
+          minX: viewportBounds.minX - cullMargin,
+          minY: viewportBounds.minY - cullMargin,
+          maxX: viewportBounds.maxX + cullMargin,
+          maxY: viewportBounds.maxY + cullMargin,
+        };
+        drawPages(bctx, viewportBounds);
+        drawPageGrids(bctx, viewportBounds);
+        const visibleItems = elementSpatialIndex.query(queryBounds);
+        const visibleIds = new Set(visibleItems.map(item => item.data.id));
+        state.elements.forEach(element => {
+          if (!visibleIds.has(element.id)) return;
+          drawElement(bctx, element);
+        });
+        bctx.restore();
+        backingValidRef.current = true;
+      }
+    }
 
-    // Apply zoom and pan
+    // ── Step 2: Composite — blit backing then draw active overlays ──────────
+    // 2a. Blit backing in device-pixel space (identity transform = zero overhead GPU copy)
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const backing = backingCanvasRef.current;
+    if (backing) {
+      ctx.drawImage(backing, 0, 0);
+    } else {
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.restore();
+
+    // 2b. Overlays in world coordinates (re-apply zoom + pan over pixelRatio base)
     ctx.save();
     ctx.scale(state.zoom, state.zoom);
     ctx.translate(state.panOffset.x, state.panOffset.y);
 
-    // Draw pages with backgrounds and borders
-    drawPages(ctx);
-    
-    // Draw grids within pages
-    drawPageGrids(ctx);
-
-    // Draw all elements
-    state.elements.forEach(element => {
-      drawElement(ctx, element);
-    });
-
-    // Draw current element being created
+    // Active element being drawn/edited
     if (currentElement) {
       if (currentElement.type === 'angle') {
         drawElement(ctx, { ...currentElement, selectedAngleSide: null });
@@ -595,7 +729,7 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
       }
     }
 
-    // Draw marquee selection rectangle
+    // Marquee selection rectangle
     if (state.selectionRect) {
       const r = state.selectionRect;
       ctx.save();
@@ -609,11 +743,11 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
       ctx.restore();
     }
 
-    // Draw add-page button on canvas (no DOM = no lag)
+    // Add-page button drawn on canvas (no DOM = no layout thrash)
     const lastBounds = getPageBounds(state.totalPages);
     const btnX = lastBounds.x + lastBounds.width / 2;
     const btnY = lastBounds.y + lastBounds.height + 40;
-    const btnR = 20 / state.zoom; // constant screen-size radius
+    const btnR = 20 / state.zoom;
     ctx.save();
     ctx.fillStyle = '#1e1e1e';
     ctx.beginPath();
@@ -622,7 +756,6 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
     ctx.strokeStyle = 'rgba(255,255,255,0.1)';
     ctx.lineWidth = 1 / state.zoom;
     ctx.stroke();
-    // Plus icon
     const iconSize = 10 / state.zoom;
     ctx.strokeStyle = 'rgba(255,255,255,0.6)';
     ctx.lineWidth = 2 / state.zoom;
@@ -636,10 +769,23 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
     ctx.restore();
 
     ctx.restore();
-  }, [state.zoom, state.panOffset, state.elements, state.totalPages, state.selectionRect, currentElement, drawElement, drawPages, drawPageGrids, getPageBounds]);
+  }, [state.zoom, state.panOffset, state.elements, state.totalPages, state.selectionRect, currentElement, drawElement, drawPages, drawPageGrids, getPageBounds, getViewportWorldBounds, elementSpatialIndex]);
 
-  // RAF-coalesced scheduler — prevents multiple renders per animation frame
+  // Full invalidation: mark backing stale then schedule RAF.
+  // Call this when elements, zoom, pan, pages, or grid change.
   const scheduleRender = useCallback(() => {
+    backingValidRef.current = false;
+    if (renderPendingRef.current) return;
+    renderPendingRef.current = true;
+    rafIdRef.current = requestAnimationFrame(() => {
+      renderPendingRef.current = false;
+      renderRef.current();
+    });
+  }, []);
+
+  // Overlay-only: backing is still valid; just re-composite.
+  // Call this when only the active element or selection marquee changed.
+  const scheduleOverlayRender = useCallback(() => {
     if (renderPendingRef.current) return;
     renderPendingRef.current = true;
     rafIdRef.current = requestAnimationFrame(() => {
@@ -656,10 +802,15 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
     return () => { cancelAnimationFrame(rafIdRef.current); };
   }, []);
 
-  // Trigger render when dependencies change
+  // Scene-layer changes: invalidate backing and reschedule full composite.
   useEffect(() => {
     scheduleRender();
-  }, [state.elements, state.selectedElementIds, state.selectionRect, state.zoom, state.panOffset, state.currentPage, state.totalPages, state.gridSize, state.gridVisible, currentElement, scheduleRender]);
+  }, [state.elements, state.selectedElementIds, state.zoom, state.panOffset, state.currentPage, state.totalPages, state.gridSize, state.gridVisible, scheduleRender]);
+
+  // Overlay-only changes: active element or marquee — no backing rebuild needed.
+  useEffect(() => {
+    scheduleOverlayRender();
+  }, [currentElement, state.selectionRect, scheduleOverlayRender]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -691,6 +842,8 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
         dispatch({ type: 'SET_PAN', offset: clamped });
       }
 
+      // Resize also invalidates the backing canvas (dimensions changed)
+      backingValidRef.current = false;
       render();
     };
 
@@ -730,6 +883,11 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
     const point = getCanvasPoint(e);
     lastCursorPos.current = point;
     onCursorMove(point);
+
+    // Show instructions when moving cursor over canvas
+    if (!isDrawing && !isPanning) {
+      showInstructionsBriefly();
+    }
 
     // Handle panning
     if (isPanning && lastPanPoint) {
@@ -854,6 +1012,12 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
     containerActiveRef.current = true;
     canvasRef.current?.setPointerCapture(e.pointerId);
 
+    // In pencil mode, only allow pen pointers for drawing
+    // Touch pointers can still pan
+    const isPenPointer = e.pointerType === 'pen';
+    const isTouchPointer = e.pointerType === 'touch';
+    const shouldPreventDrawing = state.pencilMode && isTouchPointer;
+
     // Check if the add-page button was clicked
     const point = getCanvasPoint(e);
     const lastBounds = getPageBounds(state.totalPages);
@@ -867,10 +1031,15 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
       return;
     }
     
-    if (e.button === 1 && canPan()) {
+    // Middle mouse button or touch pointer (when not in pencil mode) can pan
+    // In pencil mode, touch pointers can still pan even when pencil mode is active
+    if ((e.button === 1 || isTouchPointer) && canPan()) {
       setIsPanning(true);
       setLastPanPoint({ x: e.clientX, y: e.clientY });
       e.preventDefault();
+    } else if (!shouldPreventDrawing) {
+      // Show instructions when starting to use tool (not panning)
+      showInstructionsBriefly();
     }
   };
 
@@ -917,6 +1086,15 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
     window.addEventListener('keydown', onKeyDown, { passive: false });
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [dispatch]);
+
+  // Cleanup instruction timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (instructionTimeoutRef.current) {
+        clearTimeout(instructionTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // iPad two/three-finger tap: basic detection without heavy libs
   useEffect(() => {
@@ -1121,7 +1299,7 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
           setIsDrawing={setIsDrawing}
           currentElement={currentElement}
           setCurrentElement={setCurrentElement}
-          render={render}
+          render={scheduleOverlayRender}
         />
       )}
 
@@ -1147,6 +1325,25 @@ export function DrawingCanvas({ onCursorMove }: DrawingCanvasProps) {
           )}
         </div>
       )}
+
+      {/* Dynamic Tool Instructions - Smooth fade in/out based on interaction */}
+      <div 
+        className={`absolute bottom-4 left-4 pointer-events-none transition-all duration-500 ease-in-out ${
+          showInstructions 
+            ? 'opacity-100 translate-y-0' 
+            : 'opacity-0 translate-y-2'
+        }`}
+      >
+        <div className="bg-black/80 backdrop-blur-md text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 shadow-lg flex items-center space-x-2">
+          {state.currentTool === 'select' && <span>Click to select • Drag to move • Shift+Click to pan</span>}
+          {state.currentTool === 'line' && <span>Click and drag to draw lines</span>}
+          {state.currentTool === 'angle' && <span>Click: baseline start → center → angle end</span>}
+          {state.currentTool === 'freehand' && <span>Click and drag to draw freehand</span>}
+          {state.currentTool === 'eraser' && <span>Click and drag to erase</span>}
+          {state.currentTool === 'text' && <span>Click to place text</span>}
+          {!['select', 'line', 'angle', 'freehand', 'eraser', 'text'].includes(state.currentTool) && <span>Ready</span>}
+        </div>
+      </div>
 
       {/* Add Page Button - Rendered on canvas for lag-free scrolling */}
     </div>

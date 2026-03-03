@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Unlock, Plus, Trash2, Layers } from 'lucide-react';
-import { useDrawingContext, Layer } from '../context/DrawingContext';
+import { useDrawingSelector, useDrawingDispatch, Layer } from '../context/DrawingContext';
+import { ListItem, IconHeader, InputGroup } from './ui';
 
 export function LayerPanel() {
-  const { state, dispatch } = useDrawingContext();
+  const layers = useDrawingSelector(s => s.layers);
+  const currentLayerId = useDrawingSelector(s => s.currentLayerId);
+  const elementCountByLayer = useDrawingSelector(s => {
+    const counts: Record<string, number> = {};
+    s.elements.forEach(el => { counts[el.layerId] = (counts[el.layerId] ?? 0) + 1; });
+    return counts;
+  });
+  const dispatch = useDrawingDispatch();
   const [newLayerName, setNewLayerName] = useState('');
 
   const handleAddLayer = () => {
@@ -21,12 +29,12 @@ export function LayerPanel() {
   };
 
   const handleDeleteLayer = (layerId: string) => {
-    if (state.layers.length <= 1) return; // prevent deleting last layer
+    if (layers.length <= 1) return; // prevent deleting last layer
     dispatch({ type: 'DELETE_LAYER', id: layerId });
   };
 
   const toggleLayerVisibility = (layerId: string) => {
-    const layer = state.layers.find(l => l.id === layerId);
+    const layer = layers.find(l => l.id === layerId);
     if (layer) {
       dispatch({
         type: 'UPDATE_LAYER',
@@ -37,7 +45,7 @@ export function LayerPanel() {
   };
 
   const toggleLayerLock = (layerId: string) => {
-    const layer = state.layers.find(l => l.id === layerId);
+    const layer = layers.find(l => l.id === layerId);
     if (layer) {
       dispatch({
         type: 'UPDATE_LAYER',
@@ -48,7 +56,7 @@ export function LayerPanel() {
   };
 
   const setCurrentLayer = (layerId: string) => {
-    const layer = state.layers.find(l => l.id === layerId);
+    const layer = layers.find(l => l.id === layerId);
     if (layer && !layer.locked) {
       dispatch({ type: 'SET_CURRENT_LAYER', id: layerId });
     }
@@ -56,49 +64,32 @@ export function LayerPanel() {
 
   return (
     <div className="h-full flex flex-col text-white">
-      <div className="p-5 border-b border-white/10 flex items-center space-x-3">
-        <div className="p-2 bg-[#cc8bed]/20 rounded-lg text-[#cc8bed]">
-          <Layers size={20} />
-        </div>
-        <h3 className="font-semibold text-lg tracking-wide">Layers</h3>
-      </div>
+      <IconHeader 
+        icon={<Layers size={20} />}
+        title="Layers"
+      />
       
-      <div className="p-4 border-b border-white/10 bg-white/5">
-        <div className="flex space-x-2">
-          <input
-            type="text"
-            value={newLayerName}
-            onChange={(e) => setNewLayerName(e.target.value)}
-            placeholder="New layer name..."
-            className="flex-1 px-4 py-2.5 bg-black/20 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-[#cc8bed]/50 focus:ring-1 focus:ring-[#cc8bed]/50 placeholder-white/30 transition-all"
-            onKeyPress={(e) => e.key === 'Enter' && handleAddLayer()}
-          />
-          <button
-            onClick={handleAddLayer}
-            disabled={!newLayerName.trim()}
-            className="px-4 py-2.5 bg-[#cc8bed] hover:bg-[#b070d0] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all duration-200 text-white shadow-lg hover:shadow-[#cc8bed]/20 active:scale-95"
-            title="Add Layer"
-          >
-            <Plus size={18} />
-          </button>
-        </div>
-      </div>
+      <InputGroup 
+        placeholder="New layer name..."
+        value={newLayerName}
+        onChange={setNewLayerName}
+        onSubmit={handleAddLayer}
+        buttonIcon={<Plus size={18} />}
+        buttonDisabled={!newLayerName.trim()}
+        buttonTitle="Add Layer"
+      />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-        {state.layers.map((layer) => (
-          <div
+        {layers.map((layer) => (
+          <ListItem
             key={layer.id}
-            className={`group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
-              state.currentLayerId === layer.id
-                ? 'bg-[#cc8bed]/20 border-[#cc8bed]/30 shadow-[0_0_15px_-5px_rgba(204,139,237,0.3)]'
-                : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
-            }`}
+            active={currentLayerId === layer.id}
             onClick={() => setCurrentLayer(layer.id)}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3 overflow-hidden">
                 <div
-                  className={`w-3 h-3 rounded-full shadow-sm ${state.currentLayerId === layer.id ? 'ring-2 ring-white/20' : ''}`}
+                  className={`w-3 h-3 rounded-full shadow-sm ${currentLayerId === layer.id ? 'ring-2 ring-white/20' : ''}`}
                   style={{ backgroundColor: layer.color }}
                 />
                 <div className="flex flex-col min-w-0">
@@ -106,7 +97,7 @@ export function LayerPanel() {
                     {layer.name}
                   </span>
                   <span className="text-[10px] text-white/40">
-                    {state.elements.filter(el => el.layerId === layer.id).length} objects
+                    {elementCountByLayer[layer.id] ?? 0} objects
                   </span>
                 </div>
               </div>
@@ -138,7 +129,7 @@ export function LayerPanel() {
                   {layer.locked ? <Lock size={14} /> : <Unlock size={14} />}
                 </button>
 
-                {state.layers.length > 1 && (
+                {layers.length > 1 && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -153,10 +144,10 @@ export function LayerPanel() {
               </div>
             </div>
             
-            {state.currentLayerId === layer.id && (
+            {currentLayerId === layer.id && (
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#cc8bed] rounded-r-full shadow-[0_0_10px_rgba(204,139,237,0.5)]"></div>
             )}
-          </div>
+          </ListItem>
         ))}
       </div>
     </div>

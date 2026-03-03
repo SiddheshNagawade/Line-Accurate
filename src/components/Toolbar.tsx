@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { MousePointer2, Minus, Ruler, PenTool, Type, Eraser, RotateCcw, RotateCw, ImagePlus, LayoutGrid, Check } from 'lucide-react';
-import { useDrawingContext, Tool, ToolSettings } from '../context/DrawingContext';
+import { MousePointer2, Minus, Ruler, PenTool, Type, Eraser, RotateCcw, RotateCw, ImagePlus, LayoutGrid, Check, Pen } from 'lucide-react';
+import { useDrawingSelector, useDrawingDispatch, Tool, ToolSettings } from '../context/DrawingContext';
 
 // Map tool ids to lucide icons
 const toolIconMap: Record<Tool | 'image', React.ElementType> = {
@@ -37,7 +37,15 @@ const DEFAULT_VISIBLE: (Tool | 'image')[] = ['select', 'line', 'freehand', 'eras
 const thicknessPresets = [1, 2, 3];
 
 export function Toolbar() {
-  const { state, dispatch } = useDrawingContext();
+  const currentTool = useDrawingSelector(s => s.currentTool);
+  const toolSettings = useDrawingSelector(s => s.toolSettings);
+  const pencilMode = useDrawingSelector(s => s.pencilMode);
+  const historyIndex = useDrawingSelector(s => s.historyIndex);
+  const historyLength = useDrawingSelector(s => s.history.length);
+  const dispatch = useDrawingDispatch();
+
+  // Provide a state-like object so the rest of the component compiles unchanged
+  const state = { currentTool, toolSettings, pencilMode, historyIndex, history: { length: historyLength } };
   const [showAllTools, setShowAllTools] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [visibleToolIds, setVisibleToolIds] = useState<(Tool | 'image')[]>(() => {
@@ -257,6 +265,22 @@ export function Toolbar() {
           <div className="absolute left-full ml-3 px-2.5 py-1 bg-[#1e1e1e] text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 border border-white/10 pointer-events-none">Redo</div>
         </button>
       </div>
+
+      {/* ── Pencil Mode (iPad) ── */}
+      <button
+        onClick={() => dispatch({ type: 'TOGGLE_PENCIL_MODE' })}
+        className={`w-11 h-11 rounded-xl transition-all duration-200 flex items-center justify-center group relative shrink-0 ${
+          state.pencilMode
+            ? 'bg-[#cc8bed] text-white shadow-[0_0_15px_-3px_rgba(204,139,237,0.5)]'
+            : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+        }`}
+        title={`Pencil Mode: ${state.pencilMode ? 'ON (Stylus only)' : 'OFF'}`}
+      >
+        <Pen size={18} />
+        <div className="absolute left-full ml-3 px-2.5 py-1 bg-[#1e1e1e] text-white text-[11px] font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50 border border-white/10 shadow-xl pointer-events-none">
+          Pencil Mode {state.pencilMode ? '(ON)' : '(OFF)'}
+        </div>
+      </button>
 
       {/* ── Separator ── */}
       <div className="w-8 h-px bg-white/10 rounded-full shrink-0" />

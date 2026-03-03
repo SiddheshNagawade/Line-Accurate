@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useDrawingContext, Point, DrawingElement } from '../../context/DrawingContext';
 import { isPointNearLine, distPointToSegment } from '../../utils/geometry';
+import { Quadtree, getElementBounds, pointRect, type SpatialRect } from '../../utils/spatialIndex';
 
 interface SelectToolProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -49,6 +50,23 @@ export function SelectTool({
   initialImageSizeRef.current = initialImageSize;
   const initialImagePosRef = useRef(initialImagePos);
   initialImagePosRef.current = initialImagePos;
+
+  const selectableSpatialIndex = useMemo(() => {
+    const items = state.elements
+      .map((element) => {
+        const layer = state.layers.find(l => l.id === element.layerId);
+        if (!layer?.visible || layer.locked) return null;
+        const bounds = getElementBounds(element, Math.max(state.snapThreshold, 8));
+        if (!bounds) return null;
+        return { bounds, data: { id: element.id } };
+      })
+      .filter((item): item is { bounds: SpatialRect; data: { id: string } } => item !== null);
+
+    return new Quadtree(items);
+  }, [state.elements, state.layers, state.snapThreshold]);
+
+  const selectableSpatialIndexRef = useRef(selectableSpatialIndex);
+  selectableSpatialIndexRef.current = selectableSpatialIndex;
 
   // --- Helper: compute an element's axis-aligned bounding box ---
   const getElementBounds = useCallback((el: DrawingElement): { minX: number; minY: number; maxX: number; maxY: number } | null => {
@@ -99,8 +117,15 @@ export function SelectTool({
 
   const findElementAtPoint = (point: Point): DrawingElement | null => {
     const s = stateRef.current;
+
+    const queryRadius = Math.max(s.snapThreshold + 10, 18 / s.zoom);
+    const nearCandidates = selectableSpatialIndexRef.current.query(pointRect(point.x, point.y, queryRadius));
+    const candidateIds = new Set(nearCandidates.map(c => c.data.id));
+
     for (let i = s.elements.length - 1; i >= 0; i--) {
       const element = s.elements[i];
+      if (!candidateIds.has(element.id)) continue;
+
       const layer = s.layers.find(l => l.id === element.layerId);
       if (!layer?.visible || layer.locked) continue;
 
@@ -252,6 +277,11 @@ export function SelectTool({
     if (!canvas) return;
 
     const handlePointerDown = (e: PointerEvent) => {
+      // In pencil mode, only allow pen pointers for drawing (select, resize, etc.)
+      if (stateRef.current.pencilMode && e.pointerType === 'touch') {
+        return;
+      }
+
       const isShift = e.shiftKey;
       const s = stateRef.current;
 

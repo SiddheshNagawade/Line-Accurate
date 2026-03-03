@@ -1,9 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { useDrawingContext } from '../context/DrawingContext';
+import { useDrawingSelector, useDrawingDispatch } from '../context/DrawingContext';
 import { Plus, Trash2, FileText, Star, Copy, Search, X } from 'lucide-react';
+import { Button, IconHeader } from './ui';
 
 export function PagesPanel() {
-  const { state, dispatch } = useDrawingContext();
+  const totalPages = useDrawingSelector(s => s.totalPages);
+  const currentPage = useDrawingSelector(s => s.currentPage);
+  const bookmarkedPages = useDrawingSelector(s => s.bookmarkedPages);
+  const dispatch = useDrawingDispatch();
   const [draggedPage, setDraggedPage] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterBookmarked, setFilterBookmarked] = useState(false);
@@ -15,7 +19,7 @@ export function PagesPanel() {
 
   const handleDelete = (page: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (state.totalPages <= 1) return;
+    if (totalPages <= 1) return;
     if (confirm(`Delete Page ${page}?`)) {
       dispatch({ type: 'DELETE_PAGE', page });
     }
@@ -67,38 +71,28 @@ export function PagesPanel() {
   const thumbHeight = Math.round(thumbWidth * (297 / 210));
 
   // Filter pages
-  const pages = Array.from({ length: state.totalPages }, (_, i) => i + 1);
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
   const filteredPages = pages.filter(page => {
     const matchesSearch = searchQuery === '' || `Page ${page}`.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesBookmark = !filterBookmarked || state.bookmarkedPages.has(page);
+    const matchesBookmark = !filterBookmarked || bookmarkedPages.has(page);
     return matchesSearch && matchesBookmark;
   });
 
   // Stats
-  const bookmarkCount = state.bookmarkedPages.size;
+  const bookmarkCount = bookmarkedPages.size;
 
   return (
     <div className="h-full flex flex-col text-white">
-      <div className="p-5 border-b border-white/10">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-[#cc8bed]/20 rounded-lg text-[#cc8bed]">
-              <FileText size={20} />
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg tracking-wide">Pages</h3>
-              <p className="text-xs text-white/40">{state.totalPages} total · {bookmarkCount} starred</p>
-            </div>
-          </div>
-          <button
-            onClick={handleAdd}
-            className="p-2 bg-[#cc8bed] hover:bg-[#b070d0] rounded-lg transition-all duration-200 text-white shadow-lg hover:shadow-[#cc8bed]/20 active:scale-95"
-            title="Add Page"
-          >
-            <Plus size={18} />
-          </button>
-        </div>
+      <IconHeader 
+        icon={<FileText size={20} />}
+        title="Pages"
+        subtitle={`${totalPages} total · ${bookmarkCount} starred`}
+        actions={
+          <Button variant="primary" size="sm" icon={Plus} iconSize={18} onClick={handleAdd} title="Add Page" />
+        }
+      />
 
+      <div className="p-4 border-b border-white/10 bg-white/5">
         {/* Search and filter */}
         <div className="space-y-2">
           <div className="relative">
@@ -132,11 +126,11 @@ export function PagesPanel() {
           </button>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
         {filteredPages.map((page) => {
-          const isCurrent = state.currentPage === page;
-          const isBookmarked = state.bookmarkedPages.has(page);
+          const isCurrent = currentPage === page;
+          const isBookmarked = bookmarkedPages.has(page);
           const isDragging = draggedPage === page;
           
           return (
@@ -200,12 +194,12 @@ export function PagesPanel() {
                 <button
                   onClick={(e) => handleDelete(page, e)}
                   className={`p-1.5 rounded-lg transition-colors ${
-                    state.totalPages <= 1 
+                    totalPages <= 1 
                       ? 'opacity-30 cursor-not-allowed' 
                       : 'hover:bg-red-500/20 hover:text-red-400 text-white/40'
                   }`}
                   title="Delete Page"
-                  disabled={state.totalPages <= 1}
+                  disabled={totalPages <= 1}
                 >
                   <Trash2 size={14} />
                 </button>

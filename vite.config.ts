@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Inject build timestamp so the service worker cache version is unique per build.
+  define: {
+    __BUILD_ID__: JSON.stringify(`v${Date.now()}`),
+  },
   build: {
     // Aggressive code splitting for better caching & parallel loading
     rollupOptions: {

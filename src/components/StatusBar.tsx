@@ -1,35 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useDrawingContext, Point } from '../context/DrawingContext';
-import { getTimeSinceString } from '../utils/autoSave';
-import { MousePointer2, Layers, Grid, ZoomIn, Box, HardDrive, Cloud, CloudOff, Loader2 } from 'lucide-react';
+import { MousePointer2, Layers, Grid, ZoomIn, Box, CloudOff } from 'lucide-react';
 
 interface StatusBarProps {
   cursorPosition: Point;
 }
 
 export function StatusBar({ cursorPosition }: StatusBarProps) {
-  const { state, saveStatus, lastSaveTime } = useDrawingContext();
-  const [timeAgo, setTimeAgo] = useState('');
-
-  // Update the "time ago" string every 10s
-  useEffect(() => {
-    if (!lastSaveTime) return;
-    setTimeAgo(getTimeSinceString(lastSaveTime));
-    const interval = setInterval(() => {
-      setTimeAgo(getTimeSinceString(lastSaveTime));
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [lastSaveTime]);
+  const { state, saveStatus } = useDrawingContext();
 
   const formatCoordinate = (value: number) => {
     return value.toFixed(2);
   };
 
   const saveStatusConfig = {
-    saved: { icon: <HardDrive size={11} />, text: `Cached ${timeAgo}`, color: 'text-green-400', dot: 'bg-green-500', pulse: false },
-    saving: { icon: <Loader2 size={11} className="animate-spin" />, text: 'Saving…', color: 'text-yellow-400', dot: 'bg-yellow-500', pulse: true },
-    unsaved: { icon: <CloudOff size={11} />, text: 'Unsaved', color: 'text-orange-400', dot: 'bg-orange-500', pulse: false },
-    restored: { icon: <Cloud size={11} />, text: 'Restored from cache', color: 'text-blue-400', dot: 'bg-blue-500', pulse: false },
+    unsaved: { icon: <CloudOff size={11} />, text: 'Unsaved — Click Save', color: 'text-orange-400', dot: 'bg-orange-500', pulse: true },
   };
 
   const status = saveStatusConfig[saveStatus];
@@ -65,7 +50,7 @@ export function StatusBar({ cursorPosition }: StatusBarProps) {
       </div>
 
       <div className="flex items-center space-x-4">
-        <div className={`flex items-center space-x-1.5 group ${status.color}`} title={`Local cache: ${status.text}`}>
+        <div className={`flex items-center space-x-1.5 group ${status.color}`} title="Save your work before leaving">
           <div className={`w-1.5 h-1.5 rounded-full ${status.dot} ${status.pulse ? 'animate-pulse' : ''}`}></div>
           {status.icon}
           <span className="font-medium text-[10px] max-w-[110px] truncate">{status.text}</span>

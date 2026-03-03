@@ -31,6 +31,11 @@ export function FreehandTool({
     if (!canvas) return;
 
     const handlePointerDown = (e: PointerEvent) => {
+      // In pencil mode, only allow pen pointers for drawing
+      if (state.pencilMode && e.pointerType === 'touch') {
+        return; // Touch pointers can still pan (handled in DrawingCanvas)
+      }
+
       const point = getCanvasPoint(e);
       
       // Only allow drawing within page bounds

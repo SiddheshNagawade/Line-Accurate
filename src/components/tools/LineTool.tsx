@@ -31,6 +31,11 @@ export function LineTool({
     if (!canvas) return;
 
     const handlePointerDown = (e: PointerEvent) => {
+      // In pencil mode, only allow pen pointers for drawing
+      if (state.pencilMode && e.pointerType === 'touch') {
+        return;
+      }
+
       const point = getCanvasPoint(e);
       
       // Only allow drawing within page bounds

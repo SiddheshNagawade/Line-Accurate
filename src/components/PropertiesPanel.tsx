@@ -1,9 +1,18 @@
 import React, { useMemo } from 'react';
-import { useDrawingContext, DrawingElement } from '../context/DrawingContext';
+import { useDrawingSelector, useDrawingDispatch, DrawingElement } from '../context/DrawingContext';
 import { Grid, ZoomIn, ZoomOut, Settings, Ruler, Eye, Magnet, Palette, Minus, Trash2, Copy, MoveVertical } from 'lucide-react';
 
 export function PropertiesPanel() {
-  const { state, dispatch } = useDrawingContext();
+  const selectedElementIds = useDrawingSelector(s => s.selectedElementIds);
+  const elements = useDrawingSelector(s => s.elements);
+  const gridVisible = useDrawingSelector(s => s.gridVisible);
+  const snapToGrid = useDrawingSelector(s => s.snapToGrid);
+  const units = useDrawingSelector(s => s.units);
+  const zoom = useDrawingSelector(s => s.zoom);
+  const dispatch = useDrawingDispatch();
+
+  // Provide a state-like object so the rest of the component compiles unchanged
+  const state = { selectedElementIds, elements, gridVisible, snapToGrid, units, zoom };
 
   const handleUnitsChange = (units: 'mm' | 'cm') => {
     dispatch({ type: 'SET_UNITS', units });

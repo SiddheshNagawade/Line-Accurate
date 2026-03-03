@@ -1,8 +1,11 @@
 /// <reference lib="webworker" />
 
 declare const self: ServiceWorkerGlobalScope;
+declare const __BUILD_ID__: string;
 
-const CACHE_VERSION = 'v1';
+// Cache version is injected at build time from vite.config.ts so every new
+// deploy gets a fresh cache name and stale assets are evicted automatically.
+const CACHE_VERSION = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'v1';
 const CACHE_NAMES = {
   STATIC: `${CACHE_VERSION}-static`,
   DYNAMIC: `${CACHE_VERSION}-dynamic`,

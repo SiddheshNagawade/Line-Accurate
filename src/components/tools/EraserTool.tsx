@@ -101,6 +101,11 @@ export function EraserTool({
     if (!canvas) return;
 
     const handlePointerDown = (e: PointerEvent) => {
+      // In pencil mode, only allow pen pointers for drawing
+      if (state.pencilMode && e.pointerType === 'touch') {
+        return;
+      }
+
       const point = getCanvasPoint(e);
       
       // Only allow erasing within page bounds

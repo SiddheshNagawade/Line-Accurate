@@ -41,4 +41,110 @@
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
+    <div id="boot-shell" aria-live="polite" aria-busy="true">
+      <div class="boot-nav">
+        <div class="boot-brand">
+          <span class="boot-logo"></span>
+          <span>LineAccurate</span>
+        </div>
+        <span class="boot-pill">Loading</span>
+      </div>
+
+      <div class="boot-bottom">
+        <p class="boot-text">Generating your workspace…</p>
+        <div class="boot-loader" role="status" aria-label="Generating"></div>
+      </div>
+    </div>
 </html>
+    <style>
+      #boot-shell {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #0f0f12;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        pointer-events: none;
+        opacity: 1;
+        transition: opacity 260ms ease;
+      }
+
+      #boot-shell.boot-shell-hidden {
+        opacity: 0;
+      }
+
+      .boot-nav {
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(15, 15, 18, 0.86);
+        backdrop-filter: blur(10px);
+      }
+
+      .boot-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font: 600 15px/1.2 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+
+      .boot-logo {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #cc8bed, #9966cc);
+        box-shadow: 0 0 20px rgba(204, 139, 237, 0.35);
+      }
+
+      .boot-pill {
+        font: 600 12px/1 Inter, system-ui, sans-serif;
+        color: #e9d7f5;
+        border: 1px solid rgba(204, 139, 237, 0.45);
+        background: rgba(204, 139, 237, 0.14);
+        border-radius: 999px;
+        padding: 6px 10px;
+      }
+
+      .boot-bottom {
+        width: min(680px, calc(100% - 32px));
+        margin: 0 auto 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .boot-text {
+        margin: 0;
+        font: 500 13px/1.4 Inter, system-ui, sans-serif;
+        color: rgba(255, 255, 255, 0.72);
+      }
+
+      .boot-loader {
+        height: 4px;
+        width: 100%;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.1);
+        position: relative;
+      }
+
+      .boot-loader::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        width: 36%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #cc8bed, #7f8cff);
+        animation: boot-sweep 1.05s ease-in-out infinite;
+      }
+
+      @keyframes boot-sweep {
+        0% { transform: translateX(-120%); }
+        100% { transform: translateX(320%); }
+      }
+    </style>

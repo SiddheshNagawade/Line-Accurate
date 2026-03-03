@@ -3,6 +3,15 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+function hideBootShell() {
+  const shell = document.getElementById('boot-shell');
+  if (!shell) return;
+  shell.classList.add('boot-shell-hidden');
+  window.setTimeout(() => {
+    shell.remove();
+  }, 320);
+}
+
 // ── Minimal Web Vitals capture using native PerformanceObserver ──────────────
 // Reports LCP, CLS, and INP to console in dev; swap the handler for an
 // analytics endpoint in production without adding any bundle weight.
@@ -79,3 +88,9 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>
 );
+
+window.requestAnimationFrame(() => {
+  window.requestAnimationFrame(() => {
+    hideBootShell();
+  });
+});

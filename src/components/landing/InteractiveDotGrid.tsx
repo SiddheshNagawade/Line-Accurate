@@ -10,7 +10,7 @@ type InteractiveDotGridProps = {
 };
 
 type DotFieldInnerProps = {
-  pointerRef: MutableRefObject<{ x: number; y: number; vx: number; vy: number; speed: number; active: boolean }>;
+  pointerRef: MutableRefObject<{ x: number; y: number; vx: number; vy: number; speed: number; active: boolean; lastMoveAt: number }>;
   spacingPx: number;
   dotSize: number;
   color: string;
@@ -82,6 +82,7 @@ function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerP
     const pointer = pointerRef.current;
     const pointerX = (pointer.x * viewport.width) / 2;
     const pointerY = (pointer.y * viewport.height) / 2;
+    const pointerIsStable = pointer.active && pointer.speed < 28 && performance.now() - pointer.lastMoveAt > 170;
 
     const influenceRadius = Math.max(viewport.width, viewport.height) * 0.14;
     const repelStrength = 0.78;
@@ -102,7 +103,7 @@ function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerP
       let life = data.driftLife[i];
       let dotCooldown = data.cooldown[i];
 
-      if (pointer.active) {
+      if (pointer.active && !pointerIsStable) {
         const dx = currentX - pointerX;
         const dy = currentY - pointerY;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -137,15 +138,15 @@ function DotFieldInner({ pointerRef, spacingPx, dotSize, color }: DotFieldInnerP
       }
 
       dotCooldown = Math.max(0, dotCooldown - dt);
-      life *= 0.992;
-      const wander = life * 0.013 * data.jitter[i];
+      life *= pointerIsStable ? 0.95 : 0.992;
+      const wander = (pointerIsStable ? 0 : life * 0.013 * data.jitter[i]);
       const driftX = Math.sin(state.clock.elapsedTime * (0.75 + data.jitter[i] * 0.45) + data.phase[i]) * wander;
       const driftY = Math.cos(state.clock.elapsedTime * (0.68 + data.jitter[i] * 0.35) + data.phase[i] * 1.4) * wander;
 
       velocityX += driftX;
       velocityY += driftY;
 
-      const springStrength = baseSpring + (1 - life) * 0.08;
+      const springStrength = baseSpring + (1 - life) * (pointerIsStable ? 0.2 : 0.08);
       velocityX += (baseX - currentX) * springStrength * dt * 60;
       velocityY += (baseY - currentY) * springStrength * dt * 60;
 
@@ -196,7 +197,7 @@ export function InteractiveDotGrid({
   dotSize = 1.75,
   color = '#CC8BED',
 }: InteractiveDotGridProps) {
-  const pointerRef = useRef({ x: 0, y: 0, vx: 0, vy: 0, speed: 0, active: false });
+  const pointerRef = useRef({ x: 0, y: 0, vx: 0, vy: 0, speed: 0, active: false, lastMoveAt: 0 });
   const moveStateRef = useRef({ lastTime: 0, lastX: 0, lastY: 0, seeded: false });
 
   useEffect(() => {
@@ -244,12 +245,14 @@ export function InteractiveDotGrid({
       pointerRef.current.vx = vx;
       pointerRef.current.vy = vy;
       pointerRef.current.speed = Math.min(3200, Math.hypot(vx, vy));
+      pointerRef.current.lastMoveAt = now;
       pointerRef.current.active = true;
     };
 
     const handleLeave = () => {
       pointerRef.current.active = false;
       pointerRef.current.speed = 0;
+      pointerRef.current.lastMoveAt = performance.now();
     };
 
     window.addEventListener('pointermove', handleMove, { passive: true });

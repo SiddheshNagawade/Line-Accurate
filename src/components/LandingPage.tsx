@@ -1,14 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Grid2X2, Layers, MousePointer2, Sparkles, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { InteractiveDotGrid } from './landing/InteractiveDotGrid';
+import { preloadLandingAdjacentRoutes } from '../utils/routePreload';
+
+const InteractiveDotGrid = lazy(() => import('./landing/InteractiveDotGrid').then(m => ({ default: m.InteractiveDotGrid })));
 
 export function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [scrollY, setScrollY] = useState(0);
+  const [showInteractiveGrid, setShowInteractiveGrid] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    preloadLandingAdjacentRoutes(Boolean(user));
+  }, [user]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowInteractiveGrid(true), 700);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
@@ -158,7 +170,11 @@ export function LandingPage() {
       </nav>
 
       <header ref={heroRef} className="relative pt-32 pb-24 px-6 landing-grid overflow-hidden">
-        <InteractiveDotGrid containerRef={heroRef} />
+        {showInteractiveGrid && (
+          <Suspense fallback={null}>
+            <InteractiveDotGrid containerRef={heroRef} />
+          </Suspense>
+        )}
         <div
           className="landing-orb absolute z-[1] -top-10 left-[10%] w-80 h-80 rounded-full bg-[#cc8bed]"
           style={{ transform: `translateY(${scrollY * 0.14}px)` }}

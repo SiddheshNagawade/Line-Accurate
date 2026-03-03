@@ -4,6 +4,7 @@ import { DrawingContextProvider } from './context/DrawingContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider, useProjects } from './context/ProjectContext';
 import { LoadingScreen } from './components/LoadingScreen';
+import { loadDashboardPage, loadEditorPage, loadLandingPage, loadLoginPage } from './utils/routePreload';
 
 // Error boundary for the editor — prevents a single project failure from
 // crashing the whole app; shows a minimal recovery UI instead.
@@ -47,10 +48,10 @@ class EditorErrorBoundary extends Component<
 }
 
 // Lazy-load non-critical routes to reduce initial bundle size
-const LoginPage = lazy(() => import('./components/auth/LoginPage').then(m => ({ default: m.LoginPage })));
-const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
-const EditorPage = lazy(() => import('./components/EditorPage').then(m => ({ default: m.EditorPage })));
-const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
+const LoginPage = lazy(() => loadLoginPage().then(m => ({ default: m.LoginPage })));
+const Dashboard = lazy(() => loadDashboardPage().then(m => ({ default: m.Dashboard })));
+const EditorPage = lazy(() => loadEditorPage().then(m => ({ default: m.EditorPage })));
+const LandingPage = lazy(() => loadLandingPage().then(m => ({ default: m.LandingPage })));
 
 // Route change handler component
 function RouteHandler({ children }: { children: React.ReactNode }) {

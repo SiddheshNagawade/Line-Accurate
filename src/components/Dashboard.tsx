@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useProjects } from '../context/ProjectContext';
 import { Plus, Trash2, LogOut, ChevronDown } from 'lucide-react';
 import { useRef } from 'react';
+import { preloadEditorShell } from '../utils/routePreload';
 
 export function Dashboard() {
   const { user, signOut } = useAuth();
@@ -38,6 +39,7 @@ export function Dashboard() {
   };
 
   const handleOpenProject = (projectId: string) => {
+    preloadEditorShell();
     navigate(`/app/${projectId}`);
   };
 
@@ -153,6 +155,8 @@ export function Dashboard() {
             <div
               key={project.id}
               onClick={() => handleOpenProject(project.id)}
+              onMouseEnter={preloadEditorShell}
+              onFocus={preloadEditorShell}
               className={`group relative h-48 rounded-xl glass-panel border border-white/10 hover:border-[#cc8bed]/50 overflow-hidden cursor-pointer hover:shadow-lg hover:shadow-[#cc8bed]/20 transition-all duration-200 dashboard-card-enter ${dashboardReady ? 'dashboard-card-ready' : ''} ${newlyCreatedProjectId === project.id ? 'project-pop-bounce' : ''}`}
               style={{ ['--card-delay' as any]: `${Math.min((projectIndex + 1) * 60, 420)}ms` }}
             >

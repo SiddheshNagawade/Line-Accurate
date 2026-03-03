@@ -47,6 +47,7 @@ export default defineConfig({
     // Preload critical chunks
     cssCodeSplit: true,
     sourcemap: false, // Disable source maps in production for smaller files
+    chunkSizeWarningLimit: 700,
   },
   // Optimize dependencies upfront
   optimizeDeps: {

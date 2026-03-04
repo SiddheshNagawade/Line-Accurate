@@ -93,6 +93,7 @@ function App() {
           <RouteHandler>
             <Routes>
               <Route path="/" element={<LandingRoute />} />
+              <Route path="/landing" element={<LandingRoute />} />
               <Route path="/login" element={<LoginRoute />} />
               <Route path="/dashboard" element={<DashboardRoute />} />
               <Route path="/app/:projectId" element={<ProtectedRoute />} />
@@ -121,12 +122,14 @@ function LandingRoute() {
 
 function LoginRoute() {
   const { user, loading } = useAuth();
+  const location = useLocation();
+  const previewMode = new URLSearchParams(location.search).get('preview') === '1';
   
   if (loading) {
     return <LoadingScreen />;
   }
 
-  if (user) {
+  if (user && !previewMode) {
     return <Navigate to="/dashboard" replace />;
   }
 

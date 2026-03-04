@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ArrowLeft, LogIn } from 'lucide-react';
+import { HeroGeometric } from '../ui/shape-landing-hero';
 
 export function LoginPage() {
   const { signIn } = useAuth();
@@ -36,17 +37,22 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center bg-gradient-to-br from-[#0f0f12] via-[#1a1a1f] to-[#0f0f12]">
+    <div className="relative min-h-screen w-screen flex items-center justify-center overflow-hidden bg-[#030303]">
+      <div className="absolute inset-0">
+        <HeroGeometric showContent={false} />
+      </div>
+      <div className="absolute inset-0 bg-black/35 backdrop-blur-[1px]" />
+
       <button
         type="button"
         onClick={handleBack}
         aria-label="Go back"
-        className="fixed top-5 left-5 z-20 p-2.5 rounded-xl text-white hover:bg-white/10 transition"
+        className="fixed top-5 left-5 z-30 p-2.5 rounded-xl text-white hover:bg-white/10 transition"
       >
         <ArrowLeft size={24} strokeWidth={2.5} />
       </button>
 
-      <div className="w-full max-w-md px-6">
+      <div className="relative z-20 w-full max-w-md px-6">
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">LineAccurate</h1>

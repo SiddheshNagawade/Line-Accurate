@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Grid2X2, Layers, MousePointer2, Sparkles, Zap } from 'lucide-react';
+import { ArrowRight, Grid2X2, Layers, MousePointer2, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const InteractiveDotGrid = lazy(() =>
@@ -12,11 +12,59 @@ export function LandingPage() {
   const { user } = useAuth();
   const [scrollY, setScrollY] = useState(0);
   const heroRef = useRef<HTMLElement>(null);
+  const featuresRef = useRef<HTMLElement>(null);
+  const workflowRef = useRef<HTMLElement>(null);
+  const canvas3dRef = useRef<HTMLDivElement>(null);
+  const heroLayersRef = useRef<HTMLDivElement[]>([]);
+  const ctaBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvas3dRef.current;
+    if (!canvas) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const x = (window.innerWidth / 2 - e.pageX) / 25;
+      const y = (window.innerHeight / 2 - e.pageY) / 25;
+      canvas.style.transform = `rotateX(${55 + y / 2}deg) rotateZ(${-25 + x / 2}deg)`;
+      const layer = heroLayersRef.current[0];
+      if (layer) {
+        const depth = 15;
+        const moveX = x * 0.2;
+        const moveY = y * 0.2;
+        layer.style.transform = `translateZ(${depth}px) translate(${moveX}px, ${moveY}px)`;
+      }
+    };
+
+    canvas.style.opacity = '0';
+    canvas.style.transform = 'rotateX(90deg) rotateZ(0deg) scale(0.8)';
+    const entranceTimeout = setTimeout(() => {
+      canvas.style.transition = 'all 2.5s cubic-bezier(0.16, 1, 0.3, 1)';
+      canvas.style.opacity = '1';
+      canvas.style.transform = 'rotateX(55deg) rotateZ(-25deg) scale(1)';
+    }, 300);
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      clearTimeout(entranceTimeout);
+    };
+  }, []);
+
+  useEffect(() => {
+    const btn = ctaBtnRef.current;
+    if (!btn) return;
+    const setPath = () => {
+      btn.style.setProperty('--orbit-path', `path('M 0 0 H ${btn.offsetWidth} V ${btn.offsetHeight} H 0 V 0')`);
+    };
+    setPath();
+    window.addEventListener('resize', setPath);
+    return () => window.removeEventListener('resize', setPath);
   }, []);
 
   useEffect(() => {
@@ -69,164 +117,411 @@ export function LandingPage() {
   );
 
   return (
-    <div className="min-h-screen w-screen bg-[#0f0f12] text-white overflow-x-hidden">
+    <div className="min-h-screen w-screen bg-[#0a0a0e] text-white overflow-x-hidden">
       <style>{`
-        .landing-grid {
-          background: transparent;
-        }
-        .landing-orb {
-          filter: blur(64px);
-          opacity: 0.38;
-          pointer-events: none;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&display=swap');
+
+        /* ── Reveal animations ── */
         [data-reveal] {
           opacity: 0;
           transform: translateY(32px) scale(0.985);
           transition: opacity 760ms cubic-bezier(.2,.8,.2,1), transform 760ms cubic-bezier(.2,.8,.2,1);
         }
-        [data-reveal].is-visible {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-        }
+        [data-reveal].is-visible { opacity: 1; transform: translateY(0) scale(1); }
         @media (prefers-reduced-motion: reduce) {
-          [data-reveal] {
-            opacity: 1;
-            transform: none;
-            transition: none;
-          }
+          [data-reveal] { opacity: 1; transform: none; transition: none; }
         }
+
+        /* ── Video feature cards ── */
         .clip-shell {
-          position: relative;
-          overflow: hidden;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: linear-gradient(160deg, rgba(204,139,237,0.15), rgba(20,20,28,0.85));
+          position: relative; overflow: hidden;
+          border: 1px solid rgba(204,139,237,0.18);
+          background: linear-gradient(160deg, rgba(153,85,204,0.14), rgba(16,12,28,0.94));
           box-shadow: 0 30px 70px -40px rgba(0,0,0,0.75);
         }
         .clip-shell::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(to top, rgba(10,10,14,0.72), rgba(10,10,14,0.08) 55%);
-          z-index: 2;
-          pointer-events: none;
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(to top, rgba(10,10,20,0.78), rgba(10,10,20,0.06) 55%);
+          z-index: 2; pointer-events: none;
         }
-        .clip-shell video {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          opacity: 0.86;
-        }
+        .clip-shell video { width: 100%; height: 100%; object-fit: cover; opacity: 0.82; }
         .noise-layer {
           background-image:
-            radial-gradient(rgba(255,255,255,0.08) 0.6px, transparent 0.6px),
-            linear-gradient(120deg, rgba(204,139,237,0.08), rgba(127,140,255,0.05));
+            radial-gradient(rgba(204,139,237,0.10) 0.6px, transparent 0.6px),
+            linear-gradient(120deg, rgba(153,85,204,0.10), rgba(127,100,255,0.06));
           background-size: 3px 3px, cover;
-          mix-blend-mode: soft-light;
-          opacity: 0.32;
+          mix-blend-mode: soft-light; opacity: 0.32; pointer-events: none;
+        }
+
+        /* ── Flat nav ── */
+        .ha-nav {
+          position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+          padding: 1.55rem 2.5rem;
+          display: flex; align-items: center; justify-content: space-between;
+          font-family: 'Syncopate', monospace;
+          font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase;
           pointer-events: none;
+          background: linear-gradient(to bottom,
+            rgba(8,6,14,0.72) 0%,
+            rgba(8,6,14,0.38) 70%,
+            transparent 100%);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+          -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+        }
+        .ha-nav > * { pointer-events: auto; }
+        .ha-nav-brand {
+          font-weight: 700; font-size: 0.86rem; letter-spacing: 0.06em;
+          color: #fff; text-transform: none;
+          background: none; border: none; cursor: pointer;
+          font-family: inherit; padding: 0;
+          transition: opacity 0.2s;
+        }
+        .ha-nav-brand:hover { opacity: 0.8; }
+        .ha-nav-brand .brand-init {
+          font-size: 1.5em;
+          background: linear-gradient(135deg, #e4c7f5, #cc8bed);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .ha-nav-links { display: none; gap: 2.5rem; color: rgba(255,255,255,0.5); }
+        @media(min-width:768px){ .ha-nav-links { display: flex; } }
+        .ha-nav-links a {
+          position: relative; transition: color 0.25s;
+          padding-bottom: 2px;
+        }
+        .ha-nav-links a::after {
+          content: ''; position: absolute; bottom: -2px; left: 0;
+          width: 0; height: 1px;
+          background: linear-gradient(to right, #cc8bed, #9966cc);
+          transition: width 0.3s cubic-bezier(.4,0,.2,1);
+        }
+        .ha-nav-links a:hover { color: #e4c7f5; }
+        .ha-nav-links a:hover::after { width: 100%; }
+        .ha-nav-login {
+          color: rgba(255,255,255,0.7); font-weight: 700;
+          background: none; border: none; cursor: pointer;
+          font-family: inherit; font-size: inherit;
+          letter-spacing: inherit; text-transform: inherit;
+          margin-right: clamp(0.5rem, 4vw, 4rem);
+          transition: color 0.2s;
+          position: relative; padding-bottom: 2px;
+        }
+        .ha-nav-login::after {
+          content: ''; position: absolute; bottom: -2px; left: 0;
+          width: 0; height: 1px;
+          background: linear-gradient(to right, #cc8bed, #9966cc);
+          transition: width 0.3s cubic-bezier(.4,0,.2,1);
+        }
+        .ha-nav-login:hover { color: #e4c7f5; }
+        .ha-nav-login:hover::after { width: 100%; }
+
+        /* ── Hero background orbs ── */
+        .hero-orb {
+          position: absolute; border-radius: 50%;
+          filter: blur(90px); opacity: 0; pointer-events: none;
+          animation: orb-fade-in 2.5s ease forwards;
+        }
+        @keyframes orb-fade-in { to { opacity: 1; } }
+
+        /* ── Hero 3-D canvas ── */
+        .hero-grain-overlay {
+          position: absolute; inset: 0;
+          pointer-events: none; z-index: 3; opacity: 0.10;
+        }
+        .hero-3d-viewport {
+          position: absolute; inset: 0; perspective: 2000px;
+          display: flex; align-items: center; justify-content: flex-end;
+          padding-right: 2%; overflow: hidden; z-index: 0;
+        }
+        .hero-canvas-3d {
+          position: relative; width: min(960px, 88vw);
+          aspect-ratio: 1.84;
+          transform-style: preserve-3d;
+          transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .hero-layer {
+          position: absolute; inset: 0;
+          border: 1px solid rgba(153,85,204,0.28);
+          background-size: contain;
+          background-position: center center;
+          background-repeat: no-repeat;
+          transition: transform 0.5s ease;
+          border-radius: 6px;
+          overflow: hidden;
+        }
+        .hero-layer-1 {
+          background-image: url('/hero section Screenshot.webp');
+          box-shadow: 0 0 0 1px rgba(153,85,204,0.22),
+                      0 24px 80px -20px rgba(100,50,180,0.55);
+        }
+        .hero-contours {
+          position: absolute; width: 200%; height: 200%; top: -50%; left: -50%;
+          background-image: repeating-radial-gradient(
+            circle at 50% 50%,
+            transparent 0, transparent 50px,
+            rgba(153,85,204,0.16) 51px, transparent 52px
+          );
+          transform: translateZ(-10px); pointer-events: none; z-index: 0;
+        }
+        .hero-vignette {
+          position: absolute; inset: 0;
+          background:
+            linear-gradient(to right, rgba(8,6,18,0.82) 0%, rgba(8,6,18,0.08) 52%, rgba(8,6,18,0.52) 100%),
+            linear-gradient(to bottom, rgba(8,6,18,0.65) 0%, transparent 28%, transparent 62%, rgba(8,6,18,0.94) 100%);
+          pointer-events: none; z-index: 1;
+        }
+
+        /* ── Hero interface grid overlay ── */
+        .hero-interface {
+          position: absolute; inset: 0;
+          padding: 0 clamp(3rem, 6%, 6rem);
+          display: flex; flex-direction: column;
+          justify-content: space-between;
+          z-index: 10; pointer-events: none;
+        }
+        .hero-spacer-top { height: 88px; flex-shrink: 0; }
+        .hero-title-block {
+          flex: 1; display: flex; flex-direction: column;
+          justify-content: flex-start; padding: 3rem 0 1rem;
+        }
+        .hero-giant-title {
+          font-family: 'Syncopate', sans-serif;
+          font-size: clamp(1.8rem, 3.8vw, 4.6rem);
+          font-weight: 700; line-height: 1.1; letter-spacing: -0.01em;
+          text-transform: uppercase; margin: 0;
+        }
+        .hero-giant-title .title-line-1 { color: #ffffff; display: block; white-space: nowrap; }
+        .hero-giant-title .title-line-2 {
+          display: block; white-space: nowrap;
+          background: linear-gradient(100deg, rgba(230,215,255,0.95) 0%, #cc8bed 35%, #9966cc 65%, #7f6bff 100%);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .hero-caps {
+          display: flex; gap: 0.55rem; flex-wrap: wrap;
+          align-items: center; padding-top: 1.2rem;
+        }
+        .hero-cap-pill {
+          display: inline-flex; align-items: center; gap: 0.45rem;
+          border: 1px solid rgba(153,85,204,0.5);
+          background: rgba(153,85,204,0.12);
+          color: rgba(210,170,240,0.92);
+          font-family: monospace; font-size: 0.68rem;
+          letter-spacing: 0.14em; text-transform: uppercase;
+          padding: 0.42rem 1rem; border-radius: 2px; white-space: nowrap;
+          transition: background 0.25s, border-color 0.25s, color 0.25s;
+        }
+        .hero-cap-pill:hover {
+          background: rgba(153,85,204,0.28);
+          border-color: rgba(204,139,237,0.8);
+          color: #e4c7f5;
+        }
+        .hero-cap-pill .cap-num { color: rgba(153,85,204,0.75); font-size: 0.5rem; }
+        .hero-bottom-bar {
+          display: flex; flex-direction: row;
+          align-items: flex-end; justify-content: space-between;
+          padding-bottom: 9.5rem; gap: 2rem;
+        }
+        .hero-bottom-left { flex: 0 1 460px; }
+        .hero-tagline {
+          font-family: monospace; font-size: 0.75rem; letter-spacing: 0.13em;
+          text-transform: uppercase; color: rgba(255,255,255,0.45); line-height: 1.7;
+          margin-bottom: 0.75rem;
+        }
+        .hero-tagline p { margin: 0; }
+        .hero-desc {
+          font-size: 0.97rem; letter-spacing: 0.02em;
+          color: rgba(255,255,255,0.6); line-height: 1.8; max-width: 420px;
+        }
+        .hero-cta-wrap {
+          flex: 0 0 auto; align-self: flex-end;
+          pointer-events: auto; margin-right: 8%;
+        }
+
+        /* ── CTA button (polygon, with purple ripple) ── */
+        .hero-cta-btn {
+          position: relative; overflow: hidden;
+          background: linear-gradient(135deg, #d8d8d8 0%, #efefef 100%);
+          color: #0a0a0a;
+          padding: 1.1rem 2.5rem 1.1rem 2.1rem;
+          font-family: 'Syncopate', monospace; font-weight: 700;
+          font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase;
+          clip-path: polygon(0 0, 100% 0, 100% 65%, 88% 100%, 0 100%);
+          border: none; cursor: pointer; white-space: nowrap;
+          transition: background 0.35s, color 0.35s, transform 0.25s,
+                      box-shadow 0.35s;
+        }
+        .hero-cta-btn::before {
+          content: '';
+          position: absolute; inset: 0;
+          background: linear-gradient(135deg, #cc8bed 0%, #9966cc 100%);
+          opacity: 0;
+          transition: opacity 0.35s;
+        }
+        .hero-cta-btn:hover::before { opacity: 1; }
+        .hero-cta-btn:hover {
+          color: #fff;
+          transform: translateY(-4px);
+          box-shadow: 0 12px 36px -8px rgba(153,85,204,0.55);
+        }
+        .hero-cta-btn span { position: relative; z-index: 1; }
+        /* orbit light */
+        .cta-orbit-light {
+          position: absolute;
+          width: 90px; aspect-ratio: 1;
+          border-radius: 50%;
+          background: radial-gradient(ellipse at center, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.3) 30%, transparent 70%);
+          offset-path: var(--orbit-path);
+          offset-distance: 0%;
+          transform: translate(-50%, -50%);
+          animation: cta-orbit 2.4s linear infinite;
+          pointer-events: none; z-index: 3;
+          mix-blend-mode: soft-light;
+        }
+        @keyframes cta-orbit {
+          0%   { offset-distance: 0%; }
+          100% { offset-distance: 100%; }
+        }
+
+        /* ── Scroll hint ── */
+        .hero-scroll-hint {
+          position: absolute; bottom: 2.2rem; left: 50%;
+          width: 1px; height: 64px;
+          background: linear-gradient(to bottom, rgba(204,139,237,0.7), transparent);
+          animation: hint-flow 2.2s infinite ease-in-out;
+          z-index: 11; pointer-events: none;
+        }
+        @keyframes hint-flow {
+          0%   { transform: translateX(-50%) scaleY(0); transform-origin: top; }
+          48%  { transform: translateX(-50%) scaleY(1); transform-origin: top; }
+          50%  { transform: translateX(-50%) scaleY(1); transform-origin: bottom; }
+          98%  { transform: translateX(-50%) scaleY(0); transform-origin: bottom; }
+          100% { transform: translateX(-50%) scaleY(0); transform-origin: top; }
+        }
+
+        /* ── Generic purple button (used in workflow / start sections) ── */
+        .btn-purple {
+          position: relative; overflow: hidden; cursor: pointer;
+          transition: transform 0.22s, box-shadow 0.3s;
+        }
+        .btn-purple::after {
+          content: '';
+          position: absolute; inset: 0; border-radius: inherit;
+          background: radial-gradient(circle at center, rgba(204,139,237,0.35) 0%, transparent 70%);
+          opacity: 0; transform: scale(0.6);
+          transition: opacity 0.4s, transform 0.4s;
+          pointer-events: none;
+        }
+        .btn-purple:hover::after { opacity: 1; transform: scale(1.15); }
+        .btn-purple:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 32px -8px rgba(153,85,204,0.5);
+        }
+        .btn-purple:active { transform: scale(0.97); }
+
+        /* ── Logo mark shorthand ── */
+        .la-mark {
+          font-family: 'Syncopate', monospace; font-weight: 700;
+          letter-spacing: 0.06em; text-transform: none;
+        }
+        .la-mark .mi {
+          font-size: 1.5em; line-height: 1;
+          background: linear-gradient(135deg, #e4c7f5, #cc8bed);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
       `}</style>
 
-      <nav className="fixed top-0 inset-x-0 z-50">
-        <div className="h-16 glass-panel rounded-b-2xl border-b border-x border-white/20 bg-[#0f0f12]/85 backdrop-blur-xl shadow-lg">
-          <div className="max-w-7xl mx-auto h-full px-6 flex items-center justify-between">
-            <button onClick={() => navigate('/')} className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#cc8bed] to-[#9966cc] shadow-lg shadow-[#cc8bed]/40" />
-              <span className="font-semibold tracking-tight">LineAccurate</span>
-            </button>
-
-            <div className="hidden md:flex items-center gap-7 text-sm text-white/70">
-              <a href="#features" className="hover:text-white transition-colors">Features</a>
-              <a href="#workflow" className="hover:text-white transition-colors">Workflow</a>
-              <a href="#start" className="hover:text-white transition-colors">Get Started</a>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate(user ? '/dashboard' : '/login')}
-                className="hidden sm:inline-flex px-3 py-2 text-sm rounded-lg hover:bg-white/10 transition"
-              >
-                {user ? 'Dashboard' : 'Log in'}
-              </button>
-              <button
-                onClick={() => navigate(user ? '/dashboard' : '/login')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#cc8bed] to-[#9966cc] text-sm font-semibold hover:scale-[1.02] active:scale-[0.98] transition"
-              >
-                Start Drawing
-                <ArrowRight size={14} />
-              </button>
-            </div>
-          </div>
+      <nav className="ha-nav">
+        <button className="ha-nav-brand" onClick={() => navigate('/')}>
+          <span className="brand-init">L</span>ine<span className="brand-init">A</span>ccurate
+        </button>
+        <div className="ha-nav-links">
+          <a href="#features">Features</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#start">Start</a>
         </div>
+        <button className="ha-nav-login" onClick={() => navigate(user ? '/dashboard' : '/login')}>
+          {user ? 'Dashboard' : 'Log in'}
+        </button>
       </nav>
 
-      <header ref={heroRef} className="relative pt-32 pb-24 px-6 landing-grid overflow-hidden">
-        <Suspense fallback={null}>
-          <InteractiveDotGrid containerRef={heroRef} />
-        </Suspense>
-        <div
-          className="landing-orb absolute z-[1] -top-10 left-[10%] w-80 h-80 rounded-full bg-[#cc8bed]"
-          style={{ transform: `translateY(${scrollY * 0.14}px)` }}
-        />
-        <div
-          className="landing-orb absolute z-[1] top-24 right-[8%] w-72 h-72 rounded-full bg-[#7f8cff]"
-          style={{ transform: `translateY(${scrollY * -0.08}px)` }}
-        />
+      <header ref={heroRef} style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: '#08060e' }}>
+        {/* Purple background orbs */}
+        <div className="hero-orb" style={{ width: 520, height: 520, top: '-8%', left: '-5%', background: 'radial-gradient(circle, rgba(120,50,180,0.38) 0%, transparent 70%)', animationDelay: '0s' }} />
+        <div className="hero-orb" style={{ width: 400, height: 400, top: '10%', right: '5%', background: 'radial-gradient(circle, rgba(90,50,200,0.28) 0%, transparent 70%)', animationDelay: '0.4s' }} />
+        <div className="hero-orb" style={{ width: 300, height: 300, bottom: '5%', left: '30%', background: 'radial-gradient(circle, rgba(153,85,204,0.22) 0%, transparent 70%)', animationDelay: '0.8s' }} />
+        {/* SVG grain filter */}
+        <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+          <filter id="hero-grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+        </svg>
+        <div className="hero-grain-overlay" style={{ filter: 'url(#hero-grain)' }} />
 
-        <div className="max-w-6xl mx-auto text-center relative z-[2]" data-reveal>
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#cc8bed]/40 bg-[#cc8bed]/10 px-3 py-1 text-xs text-[#e4c7f5] mb-6">
-            <Sparkles size={14} />
-            Built for engineering drawing practice
-          </div>
-
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
-            Precision drawing,
-            <span className="block bg-gradient-to-r from-white to-[#cc8bed] bg-clip-text text-transparent">without the CAD overload.</span>
-          </h1>
-
-          <p className="max-w-2xl mx-auto mt-6 text-base md:text-lg text-white/65 leading-relaxed">
-            LineAccurate gives students a focused digital drafting board for clean lines, better alignment, and faster revisions.
-          </p>
-
-          <div className="mt-10 flex items-center justify-center gap-4">
-            <button
-              onClick={() => navigate(user ? '/dashboard' : '/login')}
-              className="inline-flex items-center gap-2 rounded-full px-6 py-3 bg-gradient-to-r from-[#cc8bed] to-[#9966cc] font-semibold shadow-xl shadow-[#cc8bed]/25 hover:scale-[1.02] active:scale-[0.98] transition"
-            >
-              Open App
-              <ArrowRight size={16} />
-            </button>
-            <a href="#features" className="inline-flex rounded-full border border-white/20 px-6 py-3 text-white/85 hover:bg-white/10 transition">
-              Explore Features
-            </a>
+        {/* 3-D parallax canvas */}
+        <div className="hero-3d-viewport">
+          <div className="hero-canvas-3d" ref={canvas3dRef}>
+            <div className="hero-contours" />
+            <div className="hero-layer hero-layer-1" ref={(el) => { heroLayersRef.current[0] = el!; }} />
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto mt-16 relative z-[2]" data-reveal>
-          <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden shadow-2xl shadow-black/30">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#cc8bed]/20 via-transparent to-[#7f8cff]/20" />
-            <div className="relative grid md:grid-cols-3 gap-0">
-              <div className="p-6 md:p-8 border-b md:border-b-0 md:border-r border-white/10">
-                <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Canvas</p>
-                <p className="text-2xl font-semibold">Snap + Draw</p>
-                <p className="text-sm text-white/60 mt-2">Draw technical lines with less manual correction.</p>
+        {/* Vignette */}
+        <div className="hero-vignette" />
+
+        {/* Interface grid overlay */}
+        <div className="hero-interface">
+          {/* spacer — nav height */}
+          <div className="hero-spacer-top" />
+
+          {/* title + pills — vertically centred in remaining space */}
+          <div className="hero-title-block">
+            <h1 className="hero-giant-title">
+              <span className="title-line-1">Engineering precision,</span>
+              <span className="title-line-2">effortlessly achieved.</span>
+            </h1>
+            <div className="hero-caps">
+              <div className="hero-cap-pill"><span className="cap-num">01</span>&nbsp;Snap&nbsp;&amp;&nbsp;Draw</div>
+              <div className="hero-cap-pill"><span className="cap-num">02</span>&nbsp;Layer&nbsp;Rhythm</div>
+              <div className="hero-cap-pill"><span className="cap-num">03</span>&nbsp;Export&nbsp;PDF</div>
+            </div>
+          </div>
+
+          {/* bottom bar — tagline+desc left, CTA toward centre-right */}
+          <div className="hero-bottom-bar">
+            <div className="hero-bottom-left">
+              <div className="hero-tagline">
+                <p>For Students &amp; Engineers — Without the CAD Overload</p>
               </div>
-              <div className="p-6 md:p-8 border-b md:border-b-0 md:border-r border-white/10">
-                <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Structure</p>
-                <p className="text-2xl font-semibold">Pages + Layers</p>
-                <p className="text-sm text-white/60 mt-2">Keep diagrams organized as complexity grows.</p>
+              <div className="hero-desc">
+                LineAccurate gives students a focused digital drafting board — clean lines, layered precision, and export-ready sheets in minutes.
               </div>
-              <div className="p-6 md:p-8">
-                <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Output</p>
-                <p className="text-2xl font-semibold">Export PDF</p>
-                <p className="text-sm text-white/60 mt-2">Submit and share clean drawing sheets quickly.</p>
-              </div>
+            </div>
+            <div className="hero-cta-wrap">
+              <button
+                ref={ctaBtnRef}
+                className="hero-cta-btn"
+                onClick={() => navigate(user ? '/dashboard' : '/login')}
+              >
+                <div className="cta-orbit-light" />
+                <span>Open Canvas</span>
+              </button>
             </div>
           </div>
         </div>
+
+        {/* animated scroll hint only */}
+        <div className="hero-scroll-hint" />
       </header>
 
-      <section id="features" className="relative px-6 pt-20 pb-10 overflow-hidden">
+      <section id="features" ref={featuresRef} className="relative px-6 pt-20 pb-10 overflow-hidden">
+        <Suspense fallback={null}>
+          <InteractiveDotGrid containerRef={featuresRef} />
+        </Suspense>
         <div className="absolute -top-24 right-[8%] w-64 h-64 rounded-full bg-[#cc8bed]/20 blur-[90px]" />
         <div className="absolute top-[38%] -left-20 w-52 h-52 rounded-full bg-[#7f8cff]/20 blur-[85px]" />
 
@@ -280,7 +575,10 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="workflow" className="px-6 py-24 bg-white/[0.02] border-y border-white/10">
+      <section id="workflow" ref={workflowRef} className="relative px-6 py-24 bg-white/[0.02] border-y border-white/10 overflow-hidden">
+        <Suspense fallback={null}>
+          <InteractiveDotGrid containerRef={workflowRef} />
+        </Suspense>
         <div className="max-w-7xl mx-auto md:grid md:grid-cols-12 gap-6">
           <div className="md:col-span-5 md:sticky md:top-24 md:h-fit" data-reveal>
             <p className="text-xs uppercase tracking-[0.18em] text-[#cc8bed]">How it feels</p>
@@ -338,7 +636,7 @@ export function LandingPage() {
               </p>
               <button
                 onClick={() => navigate(user ? '/dashboard' : '/login')}
-                className="mt-8 inline-flex items-center gap-2 rounded-full px-7 py-3 bg-white text-[#0f0f12] font-semibold hover:scale-[1.02] active:scale-[0.98] transition"
+                className="mt-8 btn-purple inline-flex items-center gap-2 rounded-full px-7 py-3 bg-gradient-to-r from-[#cc8bed] to-[#9966cc] text-white font-semibold"
               >
                 {user ? 'Go to Dashboard' : 'Sign in to Start'}
                 <ArrowRight size={16} />
@@ -360,9 +658,10 @@ export function LandingPage() {
       </section>
 
       <footer className="border-t border-white/10 px-6 py-10">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/45">
-          <p>© 2026 LineAccurate</p>
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/40">
+          <span className="la-mark text-white/70"><span className="mi">L</span>ine<span className="mi">A</span>ccurate</span>
           <p>Engineering drawing, simplified.</p>
+          <p>© 2026 LineAccurate</p>
         </div>
       </footer>
     </div>

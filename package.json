@@ -11,7 +11,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.2.4",
     "@react-three/fiber": "^8.18.0",
+    "class-variance-authority": "^0.7.1",
     "jspdf": "^4.1.0",
     "lucide-react": "^0.344.0",
     "mathjs": "^15.1.1",

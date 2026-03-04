@@ -6,3 +6,5 @@ export { Dropdown, DropdownItem, DropdownDivider } from './Dropdown';
 export { ToggleGroup, ToggleItem } from './ToggleGroup';
 export { Avatar } from './Avatar';
 export { ListItem, IconHeader, InputGroup } from './ListComponents';
+export { HeroGeometric } from './shape-landing-hero';
+export { DemoHeroGeometric } from './demo';

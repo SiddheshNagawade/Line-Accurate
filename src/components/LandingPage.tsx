@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Grid2X2, Layers, MousePointer2, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import './landing/landing.css';
 
 const InteractiveDotGrid = lazy(() =>
   import('./landing/InteractiveDotGrid').then((mod) => ({ default: mod.InteractiveDotGrid }))
@@ -10,18 +11,30 @@ const InteractiveDotGrid = lazy(() =>
 export function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [scrollY, setScrollY] = useState(0);
   const heroRef = useRef<HTMLElement>(null);
   const featuresRef = useRef<HTMLElement>(null);
   const workflowRef = useRef<HTMLElement>(null);
   const canvas3dRef = useRef<HTMLDivElement>(null);
   const heroLayersRef = useRef<HTMLDivElement[]>([]);
   const ctaBtnRef = useRef<HTMLButtonElement>(null);
+  const featureCardsRef = useRef<(HTMLElement | null)[]>([]);
+  const scrollRafRef = useRef(0);
 
   useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY);
+    const onScroll = () => {
+      cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = requestAnimationFrame(() => {
+        const y = window.scrollY;
+        featureCardsRef.current.forEach((el, i) => {
+          if (el) el.style.transform = `translateY(${Math.sin((y + i * 60) / 220) * 6}px)`;
+        });
+      });
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(scrollRafRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -118,322 +131,6 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen w-screen bg-[#0a0a0e] text-white overflow-x-hidden">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&display=swap');
-
-        /* ── Reveal animations ── */
-        [data-reveal] {
-          opacity: 0;
-          transform: translateY(32px) scale(0.985);
-          transition: opacity 760ms cubic-bezier(.2,.8,.2,1), transform 760ms cubic-bezier(.2,.8,.2,1);
-        }
-        [data-reveal].is-visible { opacity: 1; transform: translateY(0) scale(1); }
-        @media (prefers-reduced-motion: reduce) {
-          [data-reveal] { opacity: 1; transform: none; transition: none; }
-        }
-
-        /* ── Video feature cards ── */
-        .clip-shell {
-          position: relative; overflow: hidden;
-          border: 1px solid rgba(204,139,237,0.18);
-          background: linear-gradient(160deg, rgba(153,85,204,0.14), rgba(16,12,28,0.94));
-          box-shadow: 0 30px 70px -40px rgba(0,0,0,0.75);
-        }
-        .clip-shell::before {
-          content: ''; position: absolute; inset: 0;
-          background: linear-gradient(to top, rgba(10,10,20,0.78), rgba(10,10,20,0.06) 55%);
-          z-index: 2; pointer-events: none;
-        }
-        .clip-shell video { width: 100%; height: 100%; object-fit: cover; opacity: 0.82; }
-        .noise-layer {
-          background-image:
-            radial-gradient(rgba(204,139,237,0.10) 0.6px, transparent 0.6px),
-            linear-gradient(120deg, rgba(153,85,204,0.10), rgba(127,100,255,0.06));
-          background-size: 3px 3px, cover;
-          mix-blend-mode: soft-light; opacity: 0.32; pointer-events: none;
-        }
-
-        /* ── Flat nav ── */
-        .ha-nav {
-          position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-          padding: 1.55rem 2.5rem;
-          display: flex; align-items: center; justify-content: space-between;
-          font-family: 'Syncopate', monospace;
-          font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase;
-          pointer-events: none;
-          background: linear-gradient(to bottom,
-            rgba(8,6,14,0.72) 0%,
-            rgba(8,6,14,0.38) 70%,
-            transparent 100%);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-          -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-        }
-        .ha-nav > * { pointer-events: auto; }
-        .ha-nav-brand {
-          font-weight: 700; font-size: 0.86rem; letter-spacing: 0.06em;
-          color: #fff; text-transform: none;
-          background: none; border: none; cursor: pointer;
-          font-family: inherit; padding: 0;
-          transition: opacity 0.2s;
-        }
-        .ha-nav-brand:hover { opacity: 0.8; }
-        .ha-nav-brand .brand-init {
-          font-size: 1.5em;
-          background: linear-gradient(135deg, #e4c7f5, #cc8bed);
-          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .ha-nav-links { display: none; gap: 2.5rem; color: rgba(255,255,255,0.5); }
-        @media(min-width:768px){ .ha-nav-links { display: flex; } }
-        .ha-nav-links a {
-          position: relative; transition: color 0.25s;
-          padding-bottom: 2px;
-        }
-        .ha-nav-links a::after {
-          content: ''; position: absolute; bottom: -2px; left: 0;
-          width: 0; height: 1px;
-          background: linear-gradient(to right, #cc8bed, #9966cc);
-          transition: width 0.3s cubic-bezier(.4,0,.2,1);
-        }
-        .ha-nav-links a:hover { color: #e4c7f5; }
-        .ha-nav-links a:hover::after { width: 100%; }
-        .ha-nav-login {
-          color: rgba(255,255,255,0.7); font-weight: 700;
-          background: none; border: none; cursor: pointer;
-          font-family: inherit; font-size: inherit;
-          letter-spacing: inherit; text-transform: inherit;
-          margin-right: clamp(0.5rem, 4vw, 4rem);
-          transition: color 0.2s;
-          position: relative; padding-bottom: 2px;
-        }
-        .ha-nav-login::after {
-          content: ''; position: absolute; bottom: -2px; left: 0;
-          width: 0; height: 1px;
-          background: linear-gradient(to right, #cc8bed, #9966cc);
-          transition: width 0.3s cubic-bezier(.4,0,.2,1);
-        }
-        .ha-nav-login:hover { color: #e4c7f5; }
-        .ha-nav-login:hover::after { width: 100%; }
-
-        /* ── Hero background orbs ── */
-        .hero-orb {
-          position: absolute; border-radius: 50%;
-          filter: blur(90px); opacity: 0; pointer-events: none;
-          animation: orb-fade-in 2.5s ease forwards;
-        }
-        @keyframes orb-fade-in { to { opacity: 1; } }
-
-        /* ── Hero 3-D canvas ── */
-        .hero-grain-overlay {
-          position: absolute; inset: 0;
-          pointer-events: none; z-index: 3; opacity: 0.10;
-        }
-        .hero-3d-viewport {
-          position: absolute; inset: 0; perspective: 2000px;
-          display: flex; align-items: center; justify-content: flex-end;
-          padding-right: 2%; overflow: hidden; z-index: 0;
-        }
-        .hero-canvas-3d {
-          position: relative; width: min(960px, 88vw);
-          aspect-ratio: 1.84;
-          transform-style: preserve-3d;
-          transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .hero-layer {
-          position: absolute; inset: 0;
-          border: 1px solid rgba(153,85,204,0.28);
-          background-size: contain;
-          background-position: center center;
-          background-repeat: no-repeat;
-          transition: transform 0.5s ease;
-          border-radius: 6px;
-          overflow: hidden;
-        }
-        .hero-layer-1 {
-          background-image: url('/hero section Screenshot.webp');
-          box-shadow: 0 0 0 1px rgba(153,85,204,0.22),
-                      0 24px 80px -20px rgba(100,50,180,0.55);
-        }
-        .hero-contours {
-          position: absolute; width: 200%; height: 200%; top: -50%; left: -50%;
-          background-image: repeating-radial-gradient(
-            circle at 50% 50%,
-            transparent 0, transparent 50px,
-            rgba(153,85,204,0.16) 51px, transparent 52px
-          );
-          transform: translateZ(-10px); pointer-events: none; z-index: 0;
-        }
-        .hero-vignette {
-          position: absolute; inset: 0;
-          background:
-            linear-gradient(to right, rgba(8,6,18,0.82) 0%, rgba(8,6,18,0.08) 52%, rgba(8,6,18,0.52) 100%),
-            linear-gradient(to bottom, rgba(8,6,18,0.65) 0%, transparent 28%, transparent 62%, rgba(8,6,18,0.94) 100%);
-          pointer-events: none; z-index: 1;
-        }
-
-        /* ── Hero interface grid overlay ── */
-        .hero-interface {
-          position: absolute; inset: 0;
-          padding: 0 clamp(3rem, 6%, 6rem);
-          display: flex; flex-direction: column;
-          justify-content: space-between;
-          z-index: 10; pointer-events: none;
-        }
-        .hero-spacer-top { height: 88px; flex-shrink: 0; }
-        .hero-title-block {
-          flex: 1; display: flex; flex-direction: column;
-          justify-content: flex-start; padding: 3rem 0 1rem;
-        }
-        .hero-giant-title {
-          font-family: 'Syncopate', sans-serif;
-          font-size: clamp(1.8rem, 3.8vw, 4.6rem);
-          font-weight: 700; line-height: 1.1; letter-spacing: -0.01em;
-          text-transform: uppercase; margin: 0;
-        }
-        .hero-giant-title .title-line-1 { color: #ffffff; display: block; white-space: nowrap; }
-        .hero-giant-title .title-line-2 {
-          display: block; white-space: nowrap;
-          background: linear-gradient(100deg, rgba(230,215,255,0.95) 0%, #cc8bed 35%, #9966cc 65%, #7f6bff 100%);
-          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .hero-caps {
-          display: flex; gap: 0.55rem; flex-wrap: wrap;
-          align-items: center; padding-top: 1.2rem;
-        }
-        .hero-cap-pill {
-          display: inline-flex; align-items: center; gap: 0.45rem;
-          border: 1px solid rgba(153,85,204,0.5);
-          background: rgba(153,85,204,0.12);
-          color: rgba(210,170,240,0.92);
-          font-family: monospace; font-size: 0.68rem;
-          letter-spacing: 0.14em; text-transform: uppercase;
-          padding: 0.42rem 1rem; border-radius: 2px; white-space: nowrap;
-          transition: background 0.25s, border-color 0.25s, color 0.25s;
-        }
-        .hero-cap-pill:hover {
-          background: rgba(153,85,204,0.28);
-          border-color: rgba(204,139,237,0.8);
-          color: #e4c7f5;
-        }
-        .hero-cap-pill .cap-num { color: rgba(153,85,204,0.75); font-size: 0.5rem; }
-        .hero-bottom-bar {
-          display: flex; flex-direction: row;
-          align-items: flex-end; justify-content: space-between;
-          padding-bottom: 9.5rem; gap: 2rem;
-        }
-        .hero-bottom-left { flex: 0 1 460px; }
-        .hero-tagline {
-          font-family: monospace; font-size: 0.75rem; letter-spacing: 0.13em;
-          text-transform: uppercase; color: rgba(255,255,255,0.45); line-height: 1.7;
-          margin-bottom: 0.75rem;
-        }
-        .hero-tagline p { margin: 0; }
-        .hero-desc {
-          font-size: 0.97rem; letter-spacing: 0.02em;
-          color: rgba(255,255,255,0.6); line-height: 1.8; max-width: 420px;
-        }
-        .hero-cta-wrap {
-          flex: 0 0 auto; align-self: flex-end;
-          pointer-events: auto; margin-right: 8%;
-        }
-
-        /* ── CTA button (polygon, with purple ripple) ── */
-        .hero-cta-btn {
-          position: relative; overflow: hidden;
-          background: linear-gradient(135deg, #d8d8d8 0%, #efefef 100%);
-          color: #0a0a0a;
-          padding: 1.1rem 2.5rem 1.1rem 2.1rem;
-          font-family: 'Syncopate', monospace; font-weight: 700;
-          font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase;
-          clip-path: polygon(0 0, 100% 0, 100% 65%, 88% 100%, 0 100%);
-          border: none; cursor: pointer; white-space: nowrap;
-          transition: background 0.35s, color 0.35s, transform 0.25s,
-                      box-shadow 0.35s;
-        }
-        .hero-cta-btn::before {
-          content: '';
-          position: absolute; inset: 0;
-          background: linear-gradient(135deg, #cc8bed 0%, #9966cc 100%);
-          opacity: 0;
-          transition: opacity 0.35s;
-        }
-        .hero-cta-btn:hover::before { opacity: 1; }
-        .hero-cta-btn:hover {
-          color: #fff;
-          transform: translateY(-4px);
-          box-shadow: 0 12px 36px -8px rgba(153,85,204,0.55);
-        }
-        .hero-cta-btn span { position: relative; z-index: 1; }
-        /* orbit light */
-        .cta-orbit-light {
-          position: absolute;
-          width: 90px; aspect-ratio: 1;
-          border-radius: 50%;
-          background: radial-gradient(ellipse at center, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.3) 30%, transparent 70%);
-          offset-path: var(--orbit-path);
-          offset-distance: 0%;
-          transform: translate(-50%, -50%);
-          animation: cta-orbit 2.4s linear infinite;
-          pointer-events: none; z-index: 3;
-          mix-blend-mode: soft-light;
-        }
-        @keyframes cta-orbit {
-          0%   { offset-distance: 0%; }
-          100% { offset-distance: 100%; }
-        }
-
-        /* ── Scroll hint ── */
-        .hero-scroll-hint {
-          position: absolute; bottom: 2.2rem; left: 50%;
-          width: 1px; height: 64px;
-          background: linear-gradient(to bottom, rgba(204,139,237,0.7), transparent);
-          animation: hint-flow 2.2s infinite ease-in-out;
-          z-index: 11; pointer-events: none;
-        }
-        @keyframes hint-flow {
-          0%   { transform: translateX(-50%) scaleY(0); transform-origin: top; }
-          48%  { transform: translateX(-50%) scaleY(1); transform-origin: top; }
-          50%  { transform: translateX(-50%) scaleY(1); transform-origin: bottom; }
-          98%  { transform: translateX(-50%) scaleY(0); transform-origin: bottom; }
-          100% { transform: translateX(-50%) scaleY(0); transform-origin: top; }
-        }
-
-        /* ── Generic purple button (used in workflow / start sections) ── */
-        .btn-purple {
-          position: relative; overflow: hidden; cursor: pointer;
-          transition: transform 0.22s, box-shadow 0.3s;
-        }
-        .btn-purple::after {
-          content: '';
-          position: absolute; inset: 0; border-radius: inherit;
-          background: radial-gradient(circle at center, rgba(204,139,237,0.35) 0%, transparent 70%);
-          opacity: 0; transform: scale(0.6);
-          transition: opacity 0.4s, transform 0.4s;
-          pointer-events: none;
-        }
-        .btn-purple:hover::after { opacity: 1; transform: scale(1.15); }
-        .btn-purple:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 32px -8px rgba(153,85,204,0.5);
-        }
-        .btn-purple:active { transform: scale(0.97); }
-
-        /* ── Logo mark shorthand ── */
-        .la-mark {
-          font-family: 'Syncopate', monospace; font-weight: 700;
-          letter-spacing: 0.06em; text-transform: none;
-        }
-        .la-mark .mi {
-          font-size: 1.5em; line-height: 1;
-          background: linear-gradient(135deg, #e4c7f5, #cc8bed);
-          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-      `}</style>
-
       <nav className="ha-nav">
         <button className="ha-nav-brand" onClick={() => navigate('/')}>
           <span className="brand-init">L</span>ine<span className="brand-init">A</span>ccurate
@@ -550,9 +247,9 @@ export function LandingPage() {
                 <article
                   key={feature.title}
                   data-reveal
+                  ref={(el) => { featureCardsRef.current[index] = el; }}
                   style={{
                     transitionDelay: `${70 + index * 90}ms`,
-                    transform: `translateY(${Math.sin((scrollY + index * 60) / 220) * 6}px)`,
                   }}
                   className={`clip-shell rounded-[22px] min-h-[280px] md:min-h-[340px] ${feature.classes}`}
                 >

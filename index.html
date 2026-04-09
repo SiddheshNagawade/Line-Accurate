@@ -9,57 +9,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&display=swap" />
     <title>Web-Based Engineering Drawing Tool</title>
-    
-    <!-- Inline small critical CSS to avoid a render-blocking stylesheet request -->
     <style>
       :root{--bg:#2a2a2e}
       html{background:#2a2a2e!important}
       body{background:#2a2a2e!important;margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif}
-      #root{background-color:#2a2a2e!important;min-height:100vh;animation:fadeIn 0.3s ease-in-out}
-      @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-      @keyframes bootSpin{to{transform:rotate(360deg)}}
-      .boot-loading-screen{min-height:100vh;width:100vw;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f0f12 0%,#1a1a1f 50%,#0f0f12 100%)}
-      .boot-loading-stack{display:flex;flex-direction:column;align-items:center;gap:16px}
-      .boot-spinner{position:relative;width:64px;height:64px}
-      .boot-spinner-track{position:absolute;inset:0;border-radius:9999px;border:2px solid rgba(255,255,255,.1)}
-      .boot-spinner-head{position:absolute;inset:0;border-radius:9999px;border:2px solid transparent;border-top-color:#cc8bed;animation:bootSpin 1s linear infinite}
-      .boot-loading-title{margin:0;color:rgba(255,255,255,.8);font-size:14px;font-weight:500;text-align:center}
-      .boot-loading-sub{margin:4px 0 0;color:rgba(255,255,255,.4);font-size:12px;text-align:center}
-    </style>
-  </head>
-  <body style="background:#2a2a2e">
-    <div id="root" style="background:#2a2a2e">
-      <div class="boot-loading-screen" aria-live="polite" aria-busy="true">
-        <div class="boot-loading-stack">
-          <div class="boot-spinner" aria-hidden="true">
-            <div class="boot-spinner-track"></div>
-            <div class="boot-spinner-head"></div>
-          </div>
-          <div>
-            <p class="boot-loading-title">Loading</p>
-            <p class="boot-loading-sub">Please wait...</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-    <div id="boot-shell" aria-live="polite" aria-busy="true">
-      <div class="boot-nav">
-        <div class="boot-brand">
-          <span class="boot-logo"></span>
-          <span>LineAccurate</span>
-        </div>
-        <span class="boot-pill">Loading</span>
-      </div>
+      #root{background-color:#2a2a2e!important;min-height:100vh}
 
-      <div class="boot-bottom">
-        <p class="boot-text">Generating your workspace…</p>
-        <div class="boot-loader" role="status" aria-label="Generating"></div>
-      </div>
-    </div>
-</html>
-    <style>
       #boot-shell {
         position: fixed;
         inset: 0;
@@ -68,86 +23,55 @@
         color: #fff;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
         pointer-events: none;
         opacity: 1;
-        transition: opacity 260ms ease;
+        transition: opacity 180ms ease;
       }
 
       #boot-shell.boot-shell-hidden {
         opacity: 0;
       }
 
-      .boot-nav {
-        height: 64px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 20px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-        background: rgba(15, 15, 18, 0.86);
-        backdrop-filter: blur(10px);
-      }
-
-      .boot-brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        font: 600 15px/1.2 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      }
-
-      .boot-logo {
-        width: 26px;
-        height: 26px;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #cc8bed, #9966cc);
-        box-shadow: 0 0 20px rgba(204, 139, 237, 0.35);
-      }
-
-      .boot-pill {
-        font: 600 12px/1 Inter, system-ui, sans-serif;
-        color: #e9d7f5;
-        border: 1px solid rgba(204, 139, 237, 0.45);
-        background: rgba(204, 139, 237, 0.14);
+      .boot-dot {
+        width: 10px;
+        height: 10px;
         border-radius: 999px;
-        padding: 6px 10px;
+        background: #cc8bed;
+        box-shadow: 0 0 0 0 rgba(204, 139, 237, 0.5);
+        animation: boot-pulse 0.9s ease-in-out infinite;
       }
 
-      .boot-bottom {
-        width: min(680px, calc(100% - 32px));
-        margin: 0 auto 28px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .boot-text {
+      .boot-label {
         margin: 0;
-        font: 500 13px/1.4 Inter, system-ui, sans-serif;
-        color: rgba(255, 255, 255, 0.72);
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.68);
+        letter-spacing: 0.05em;
       }
 
-      .boot-loader {
-        height: 4px;
-        width: 100%;
-        border-radius: 999px;
-        overflow: hidden;
-        background: rgba(255, 255, 255, 0.1);
-        position: relative;
-      }
-
-      .boot-loader::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        width: 36%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #cc8bed, #7f8cff);
-        animation: boot-sweep 1.05s ease-in-out infinite;
-      }
-
-      @keyframes boot-sweep {
-        0% { transform: translateX(-120%); }
-        100% { transform: translateX(320%); }
+      @keyframes boot-pulse {
+        0% { transform: scale(0.8); opacity: 0.6; }
+        50% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(0.8); opacity: 0.6; }
       }
     </style>
+  </head>
+  <body style="background:#2a2a2e">
+    <div id="root" style="background:#2a2a2e"></div>
+    <div id="boot-shell" aria-live="polite" aria-busy="true">
+      <div class="boot-dot" aria-hidden="true"></div>
+      <p class="boot-label">Starting</p>
+    </div>
+    <script>
+      window.setTimeout(function () {
+        var shell = document.getElementById('boot-shell');
+        if (!shell) return;
+        shell.classList.add('boot-shell-hidden');
+        window.setTimeout(function () { shell.remove(); }, 220);
+      }, 1500);
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

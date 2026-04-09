@@ -1,10 +1,25 @@
-import React, { useEffect, Suspense, lazy, Component, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
+import React, { useEffect, Suspense, lazy, Component, useCallback, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { DrawingContextProvider } from './context/DrawingContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider, useProjects } from './context/ProjectContext';
 import { LoadingScreen } from './components/LoadingScreen';
 import { LandingPage } from './components/LandingPage';
+
+function RouteLoadingScreen({ source }: { source: string }) {
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const start = performance.now();
+    console.log(`[LoadingTrace] ${source} started`);
+
+    return () => {
+      const durationMs = performance.now() - start;
+      console.log(`[LoadingTrace] ${source} finished in ${durationMs.toFixed(1)}ms`);
+    };
+  }, [source]);
+
+  return <LoadingScreen />;
+}
 
 // Error boundary for the editor — prevents a single project failure from
 // crashing the whole app; shows a minimal recovery UI instead.
@@ -126,7 +141,7 @@ function LoginRoute() {
   const previewMode = new URLSearchParams(location.search).get('preview') === '1';
   
   if (loading) {
-    return <LoadingScreen />;
+    return <RouteLoadingScreen source="login-auth" />;
   }
 
   if (user && !previewMode) {
@@ -134,7 +149,7 @@ function LoginRoute() {
   }
 
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <Suspense fallback={<RouteLoadingScreen source="login-chunk" />}>
       <LoginPage />
     </Suspense>
   );
@@ -147,7 +162,7 @@ function DashboardRoute() {
   }, []);
 
   if (loading) {
-    return <LoadingScreen />;
+    return <RouteLoadingScreen source="dashboard-auth" />;
   }
 
   if (!user) {
@@ -155,7 +170,7 @@ function DashboardRoute() {
   }
 
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <Suspense fallback={<RouteLoadingScreen source="dashboard-chunk" />}>
       <Dashboard onProjectIntent={preloadEditor} />
     </Suspense>
   );
@@ -163,42 +178,60 @@ function DashboardRoute() {
 
 function ProtectedRoute() {
   const { user, loading } = useAuth();
-  const { currentProject, selectProject, projects } = useProjects();
+  const { selectProject, projects, projectsHydrated } = useProjects();
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
+  const [hydrationTimedOut, setHydrationTimedOut] = useState(false);
 
   const routeProject = projectId ? projects.find(p => p.id === projectId) ?? null : null;
 
   useEffect(() => {
-    if (!projectId || projects.length === 0) return;
+    if (!routeProject || !projectId) return;
+    selectProject(projectId);
+  }, [projectId, routeProject, selectProject]);
 
-    if (!routeProject) {
-      navigate('/dashboard', { replace: true });
+  useEffect(() => {
+    if (projectsHydrated) {
+      setHydrationTimedOut(false);
       return;
     }
 
-    if (!currentProject || currentProject.id !== projectId) {
-      selectProject(projectId);
-    }
-  }, [projectId, projects.length, routeProject, currentProject, selectProject, navigate]);
+    const timeoutId = window.setTimeout(() => {
+      setHydrationTimedOut(true);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [projectsHydrated]);
 
   if (loading) {
-    return <LoadingScreen />;
+    return <RouteLoadingScreen source="editor-auth" />;
   }
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Wait for project list hydration / route project selection on refresh
-  if (!projectId || projects.length === 0 || !routeProject || !currentProject || currentProject.id !== projectId) {
-    return <LoadingScreen />;
+  if (!projectId) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Hydration should be near-instant; fail safe to dashboard if it stalls.
+  if (!projectsHydrated) {
+    if (hydrationTimedOut) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    return <RouteLoadingScreen source="editor-project-hydration" />;
+  }
+
+  if (!routeProject) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
     <EditorErrorBoundary>
       <DrawingContextProvider key={projectId} projectId={projectId}>
-        <Suspense fallback={<LoadingScreen />}>
+        <Suspense fallback={<RouteLoadingScreen source="editor-chunk" />}>
           <EditorPage />
         </Suspense>
       </DrawingContextProvider>

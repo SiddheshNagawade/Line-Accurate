@@ -9,7 +9,7 @@ function hideBootShell() {
   shell.classList.add('boot-shell-hidden');
   window.setTimeout(() => {
     shell.remove();
-  }, 320);
+  }, 220);
 }
 
 // ── Minimal Web Vitals capture using native PerformanceObserver ──────────────

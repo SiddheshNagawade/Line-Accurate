@@ -31,6 +31,59 @@ const allTools: ToolDef[] = [
 ];
 
 const DEFAULT_VISIBLE: (Tool | 'image')[] = ['select', 'line', 'freehand', 'eraser'];
+const VISIBLE_TOOLS_STORAGE_KEY = 'la_visible_tools';
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+interface VisibleToolsEnvelope {
+  savedAt: number;
+  visibleToolIds: (Tool | 'image')[];
+}
+
+function isToolId(value: unknown): value is Tool | 'image' {
+  return allTools.some((tool) => tool.id === value);
+}
+
+function isVisibleTools(value: unknown): value is (Tool | 'image')[] {
+  return Array.isArray(value) && value.every(isToolId);
+}
+
+function loadVisibleToolsFromStorage(): (Tool | 'image')[] {
+  try {
+    const raw = localStorage.getItem(VISIBLE_TOOLS_STORAGE_KEY);
+    if (!raw) return DEFAULT_VISIBLE;
+
+    const parsed = JSON.parse(raw) as unknown;
+
+    // Legacy format migration (plain tool id array).
+    if (isVisibleTools(parsed)) {
+      return parsed;
+    }
+
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'savedAt' in parsed &&
+      'visibleToolIds' in parsed
+    ) {
+      const envelope = parsed as VisibleToolsEnvelope;
+      if (typeof envelope.savedAt !== 'number' || !isVisibleTools(envelope.visibleToolIds)) {
+        localStorage.removeItem(VISIBLE_TOOLS_STORAGE_KEY);
+        return DEFAULT_VISIBLE;
+      }
+
+      if (Date.now() - envelope.savedAt > ONE_DAY_MS) {
+        localStorage.removeItem(VISIBLE_TOOLS_STORAGE_KEY);
+        return DEFAULT_VISIBLE;
+      }
+
+      return envelope.visibleToolIds;
+    }
+  } catch {
+    localStorage.removeItem(VISIBLE_TOOLS_STORAGE_KEY);
+  }
+
+  return DEFAULT_VISIBLE;
+}
 
 const thicknessPresets = [1, 2, 3];
 
@@ -46,12 +99,7 @@ export function Toolbar() {
   const state = { currentTool, toolSettings, pencilMode, historyIndex, history: { length: historyLength } };
   const [showAllTools, setShowAllTools] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [visibleToolIds, setVisibleToolIds] = useState<(Tool | 'image')[]>(() => {
-    try {
-      const saved = localStorage.getItem('la_visible_tools');
-      return saved ? JSON.parse(saved) : DEFAULT_VISIBLE;
-    } catch { return DEFAULT_VISIBLE; }
-  });
+  const [visibleToolIds, setVisibleToolIds] = useState<(Tool | 'image')[]>(() => loadVisibleToolsFromStorage());
 
   const btnRef = useRef<HTMLButtonElement>(null);
   const portalRef = useRef<HTMLDivElement>(null);
@@ -62,7 +110,11 @@ export function Toolbar() {
 
   // Persist visible tools
   useEffect(() => {
-    localStorage.setItem('la_visible_tools', JSON.stringify(visibleToolIds));
+    const envelope: VisibleToolsEnvelope = {
+      savedAt: Date.now(),
+      visibleToolIds,
+    };
+    localStorage.setItem(VISIBLE_TOOLS_STORAGE_KEY, JSON.stringify(envelope));
   }, [visibleToolIds]);
 
   // Dropdown position

@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Grid2X2, Layers, MousePointer2, Zap } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import './landing/landing.css';
 
 const InteractiveDotGrid = lazy(() =>
@@ -10,7 +9,6 @@ const InteractiveDotGrid = lazy(() =>
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const heroRef = useRef<HTMLElement>(null);
   const featuresRef = useRef<HTMLElement>(null);
   const workflowRef = useRef<HTMLElement>(null);
@@ -140,8 +138,8 @@ export function LandingPage() {
           <a href="#workflow">Workflow</a>
           <a href="#start">Start</a>
         </div>
-        <button className="ha-nav-login" onClick={() => navigate(user ? '/dashboard' : '/login')}>
-          {user ? 'Dashboard' : 'Log in'}
+        <button className="ha-nav-login" onClick={() => navigate('/login')}>
+          Log in
         </button>
       </nav>
 
@@ -175,17 +173,20 @@ export function LandingPage() {
           {/* spacer — nav height */}
           <div className="hero-spacer-top" />
 
-          {/* title + pills — vertically centred in remaining space */}
+          {/* title block — vertically centred in remaining space */}
           <div className="hero-title-block">
-            <h1 className="hero-giant-title">
-              <span className="title-line-1">Engineering precision,</span>
-              <span className="title-line-2">effortlessly achieved.</span>
+            <h1 className="hero-giant-title text-3xl sm:text-4xl md:text-5xl lg:text-6xl">
+              <span className="title-desktop title-line-1">Engineering precision</span>
+              <span className="title-desktop title-line-2">effortlessly accurate</span>
+              <span className="title-mobile title-line-1">Engineering</span>
+              <span className="title-mobile title-line-1">precision</span>
+              <span className="title-mobile title-line-2">effortlessly</span>
+              <span className="title-mobile title-line-2">accurate</span>
             </h1>
-            <div className="hero-caps">
-              <div className="hero-cap-pill"><span className="cap-num">01</span>&nbsp;Snap&nbsp;&amp;&nbsp;Draw</div>
-              <div className="hero-cap-pill"><span className="cap-num">02</span>&nbsp;Layer&nbsp;Rhythm</div>
-              <div className="hero-cap-pill"><span className="cap-num">03</span>&nbsp;Export&nbsp;PDF</div>
-            </div>
+          </div>
+
+          <div className="hero-mobile-card-slot" aria-hidden="true">
+            <div className="hero-mobile-card" />
           </div>
 
           {/* bottom bar — tagline+desc left, CTA toward centre-right */}
@@ -202,7 +203,7 @@ export function LandingPage() {
               <button
                 ref={ctaBtnRef}
                 className="hero-cta-btn"
-                onClick={() => navigate(user ? '/dashboard' : '/login')}
+                onClick={() => navigate('/login')}
               >
                 <div className="cta-orbit-light" />
                 <span>Open Canvas</span>
@@ -215,7 +216,7 @@ export function LandingPage() {
         <div className="hero-scroll-hint" />
       </header>
 
-      <section id="features" ref={featuresRef} className="relative px-6 pt-20 pb-10 overflow-hidden">
+      <section id="features" ref={featuresRef} className="relative px-4 sm:px-6 pt-12 sm:pt-20 pb-8 sm:pb-10 overflow-hidden">
         <Suspense fallback={null}>
           <InteractiveDotGrid containerRef={featuresRef} />
         </Suspense>
@@ -223,17 +224,17 @@ export function LandingPage() {
         <div className="absolute top-[38%] -left-20 w-52 h-52 rounded-full bg-[#7f8cff]/20 blur-[85px]" />
 
         <div className="max-w-7xl mx-auto relative">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6" data-reveal>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 md:gap-6" data-reveal>
             <div className="max-w-2xl">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#cc8bed]">Feature Showcase</p>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mt-3">Scroll through what the canvas can actually do.</h2>
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.18em] text-[#cc8bed]">Feature Showcase</p>
+              <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight mt-2 sm:mt-3 leading-tight">Scroll through what the canvas can actually do.</h2>
             </div>
-            <p className="text-white/55 text-sm md:max-w-xs md:text-right">
+            <p className="text-white/55 text-xs sm:text-sm md:max-w-xs md:text-right">
               Each tile is a looping demo clip. Drop your own videos in the same paths to make this fully real.
             </p>
           </div>
 
-          <div className="relative mt-14 grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6">
+          <div className="relative mt-8 sm:mt-12 md:mt-14 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-5 md:gap-6">
             <div className="hidden md:block absolute -top-7 right-20 px-3 py-1 rounded-full border border-white/15 text-[10px] tracking-widest text-white/50 bg-white/[0.03] rotate-[-6deg]">
               LIVE MOTION REEL
             </div>
@@ -251,19 +252,19 @@ export function LandingPage() {
                   style={{
                     transitionDelay: `${70 + index * 90}ms`,
                   }}
-                  className={`clip-shell rounded-[22px] min-h-[280px] md:min-h-[340px] ${feature.classes}`}
+                  className={`clip-shell rounded-lg sm:rounded-[22px] min-h-[220px] sm:min-h-[280px] md:min-h-[340px] ${feature.classes}`}
                 >
                   <video autoPlay loop muted playsInline preload="metadata" className="absolute inset-0">
                     <source src={feature.clip} type="video/mp4" />
                   </video>
                   <div className="noise-layer absolute inset-0 z-[1]" />
 
-                  <div className="relative z-[3] p-5 md:p-6 h-full flex flex-col justify-end">
-                    <div className="inline-flex w-10 h-10 rounded-xl items-center justify-center border border-white/25 bg-black/30 backdrop-blur-md mb-4">
-                      <Icon size={18} className="text-[#efdcfa]" />
+                  <div className="relative z-[3] p-4 sm:p-5 md:p-6 h-full flex flex-col justify-end">
+                    <div className="inline-flex w-9 sm:w-10 h-9 sm:h-10 rounded-lg sm:rounded-xl items-center justify-center border border-white/25 bg-black/30 backdrop-blur-md mb-3 sm:mb-4">
+                      <Icon size={16} className="text-[#efdcfa]" />
                     </div>
-                    <h3 className="text-xl md:text-2xl font-semibold leading-tight">{feature.title}</h3>
-                    <p className="text-sm text-white/70 mt-2 max-w-md">{feature.description}</p>
+                    <h3 className="text-base sm:text-xl md:text-2xl font-semibold leading-tight">{feature.title}</h3>
+                    <p className="text-xs sm:text-sm text-white/70 mt-1 sm:mt-2 max-w-md">{feature.description}</p>
                   </div>
                 </article>
               );
@@ -272,20 +273,20 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="workflow" ref={workflowRef} className="relative px-6 py-24 bg-white/[0.02] border-y border-white/10 overflow-hidden">
+      <section id="workflow" ref={workflowRef} className="relative px-4 sm:px-6 py-12 sm:py-24 bg-white/[0.02] border-y border-white/10 overflow-hidden">
         <Suspense fallback={null}>
           <InteractiveDotGrid containerRef={workflowRef} />
         </Suspense>
-        <div className="max-w-7xl mx-auto md:grid md:grid-cols-12 gap-6">
+        <div className="max-w-7xl mx-auto md:grid md:grid-cols-12 gap-4 md:gap-6">
           <div className="md:col-span-5 md:sticky md:top-24 md:h-fit" data-reveal>
-            <p className="text-xs uppercase tracking-[0.18em] text-[#cc8bed]">How it feels</p>
-            <h2 className="text-3xl md:text-4xl font-bold mt-3">Less “software maze”, more drawing momentum.</h2>
-            <p className="text-white/65 mt-4 max-w-md">
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.18em] text-[#cc8bed]">How it feels</p>
+            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mt-2 sm:mt-3 leading-tight">Less "software maze", more drawing momentum.</h2>
+            <p className="text-white/65 text-sm sm:text-base mt-2 sm:mt-4 max-w-md">
               The app stays focused so students can practice fundamentals instead of fighting heavy CAD UI.
             </p>
           </div>
 
-          <div className="md:col-span-7 mt-10 md:mt-0 space-y-6">
+          <div className="md:col-span-7 mt-8 md:mt-0 space-y-3 sm:space-y-4 md:space-y-6">
             {[
               {
                 step: '01',
@@ -307,40 +308,40 @@ export function LandingPage() {
                 key={item.step}
                 data-reveal
                 style={{ transitionDelay: `${90 + idx * 70}ms` }}
-                className={`rounded-2xl border border-white/10 bg-black/30 p-6 backdrop-blur-sm ${idx % 2 === 0 ? 'md:mr-12' : 'md:ml-12'}`}
+                className={`rounded-xl sm:rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5 md:p-6 backdrop-blur-sm ${idx % 2 === 0 ? 'md:mr-12' : 'md:ml-12'}`}
               >
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#cc8bed]/20 text-[#e4c7f5] font-semibold">
+                <div className="inline-flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 rounded-full bg-[#cc8bed]/20 text-[#e4c7f5] font-semibold text-sm sm:text-base">
                   {item.step}
                 </div>
-                <h3 className="text-lg font-semibold mt-4">{item.title}</h3>
-                <p className="text-sm text-white/60 mt-2 leading-relaxed">{item.text}</p>
+                <h3 className="text-base sm:text-lg font-semibold mt-3 sm:mt-4">{item.title}</h3>
+                <p className="text-xs sm:text-sm text-white/60 mt-1 sm:mt-2 leading-relaxed">{item.text}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="start" className="px-6 py-24">
-        <div className="max-w-5xl mx-auto rounded-3xl border border-white/10 bg-gradient-to-br from-[#cc8bed]/18 via-[#131318] to-[#131318] p-8 md:p-12" data-reveal>
-          <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mb-5">
-            <Zap className="text-[#e4c7f5]" size={22} />
+      <section id="start" className="px-4 sm:px-6 py-12 sm:py-24">
+        <div className="max-w-5xl mx-auto rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-br from-[#cc8bed]/18 via-[#131318] to-[#131318] p-6 sm:p-8 md:p-12" data-reveal>
+          <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-lg sm:rounded-xl bg-white/10 flex items-center justify-center mb-4 sm:mb-5">
+            <Zap className="text-[#e4c7f5]" size={18} />
           </div>
-          <div className="grid md:grid-cols-[1.1fr_0.9fr] gap-8 items-end">
+          <div className="grid md:grid-cols-[1.1fr_0.9fr] gap-6 md:gap-8 items-end">
             <div>
-              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Make the showcase real with your own clips.</h2>
-              <p className="text-white/70 mt-4 max-w-xl">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight leading-tight">Make the showcase real with your own clips.</h2>
+              <p className="text-white/70 text-sm sm:text-base mt-3 sm:mt-4 max-w-xl">
                 Add your feature demo videos to the defined paths and this page becomes a moving product story as users scroll.
               </p>
               <button
-                onClick={() => navigate(user ? '/dashboard' : '/login')}
-                className="mt-8 btn-purple inline-flex items-center gap-2 rounded-full px-7 py-3 bg-gradient-to-r from-[#cc8bed] to-[#9966cc] text-white font-semibold"
+                onClick={() => navigate('/login')}
+                className="mt-6 sm:mt-8 btn-purple inline-flex items-center gap-2 rounded-full px-5 sm:px-7 py-2.5 sm:py-3 bg-gradient-to-r from-[#cc8bed] to-[#9966cc] text-white font-semibold text-sm sm:text-base"
               >
-                {user ? 'Go to Dashboard' : 'Sign in to Start'}
-                <ArrowRight size={16} />
+                Sign in to Start
+                <ArrowRight size={14} />
               </button>
             </div>
 
-            <div className="clip-shell rounded-2xl min-h-[230px] rotate-[1.4deg]">
+            <div className="clip-shell rounded-xl sm:rounded-2xl min-h-[200px] sm:min-h-[230px] rotate-[1.4deg] hidden sm:block">
               <video autoPlay loop muted playsInline preload="metadata" className="absolute inset-0">
                 <source src="/videos/final-showcase.mp4" type="video/mp4" />
               </video>
@@ -354,9 +355,9 @@ export function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-white/10 px-6 py-10">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/40">
-          <span className="la-mark text-white/70"><span className="mi">L</span>ine<span className="mi">A</span>ccurate</span>
+      <footer className="border-t border-white/10 px-4 sm:px-6 py-6 sm:py-10">
+        <div className="max-w-7xl mx-auto flex flex-col gap-3 sm:gap-4 text-center sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-white/40">
+          <span className="la-mark text-white/70 text-xs sm:text-sm"><span className="mi">L</span>ine<span className="mi">A</span>ccurate</span>
           <p>Engineering drawing, simplified.</p>
           <p>© 2026 LineAccurate</p>
         </div>

@@ -72,27 +72,20 @@ window.addEventListener('keydown', (e) => {
   }
 }, { passive: false });
 
-// Register Service Worker only in production to keep development and first-load startup lightweight.
+// Recovery mode: unregister any previously installed service worker registrations
+// to prevent stale cache/control issues from blocking production navigation.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register(new URL('./service-worker.ts', import.meta.url), { type: 'module' })
-      .then((reg) => {
-        console.log('[App] Service Worker registered:', reg);
-
-        // Lightweight update checks: one delayed check + when tab becomes visible.
-        const delayedCheck = window.setTimeout(() => reg.update(), 60000);
-        const onVisible = () => {
-          if (document.visibilityState === 'visible') reg.update();
-        };
-        document.addEventListener('visibilitychange', onVisible);
-
-        window.addEventListener('beforeunload', () => {
-          window.clearTimeout(delayedCheck);
-          document.removeEventListener('visibilitychange', onVisible);
+      .getRegistrations()
+      .then((registrations) => {
+        registrations.forEach((registration) => {
+          void registration.unregister();
         });
       })
-      .catch((err) => console.error('[App] Service Worker registration failed:', err));
+      .catch(() => {
+        // Ignore cleanup failures — app should still boot normally.
+      });
   });
 }
 

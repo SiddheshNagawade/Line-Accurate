@@ -11,6 +11,7 @@
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="/landing-preview.webp" as="image" />
+    <link rel="prefetch" href="/src/main.tsx" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&display=swap"></noscript>
     <title>Web-Based Engineering Drawing Tool</title>
     <style>
@@ -63,19 +64,6 @@
     </style>
   </head>
   <body style="background:#2a2a2e">
-    <script>
-      // Safety net for production incidents: clear previously registered service workers
-      // before app bootstrap so stale handlers can't keep the app in a loading loop.
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function (registrations) {
-          registrations.forEach(function (registration) {
-            registration.unregister();
-          });
-        }).catch(function () {
-          // Ignore failures; main app can still load.
-        });
-      }
-    </script>
     <div id="root" style="background:#2a2a2e"></div>
     <div id="boot-shell" aria-live="polite" aria-busy="true">
       <div class="boot-dot" aria-hidden="true"></div>
@@ -89,6 +77,23 @@
         shell.classList.add('boot-shell-hidden');
         window.setTimeout(function () { shell.remove(); }, 220);
       }, 4000);
+      
+      // Clear stale service workers asynchronously to avoid blocking initial render
+      if ('serviceWorker' in navigator) {
+        window.requestIdleCallback ? window.requestIdleCallback(function () {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            registrations.forEach(function (registration) {
+              registration.unregister();
+            });
+          }).catch(function () {});
+        }) : window.setTimeout(function () {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            registrations.forEach(function (registration) {
+              registration.unregister();
+            });
+          }).catch(function () {});
+        }, 300);
+      }
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

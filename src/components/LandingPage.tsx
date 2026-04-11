@@ -1,11 +1,7 @@
-import { lazy, Suspense, useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Grid2X2, Layers, MousePointer2, Zap } from 'lucide-react';
 import './landing/landing.css';
-
-const InteractiveDotGrid = lazy(() =>
-  import('./landing/InteractiveDotGrid').then((mod) => ({ default: mod.InteractiveDotGrid }))
-);
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -17,8 +13,42 @@ export function LandingPage() {
   const ctaBtnRef = useRef<HTMLButtonElement>(null);
   const featureCardsRef = useRef<(HTMLElement | null)[]>([]);
   const scrollRafRef = useRef(0);
+  const [disableHeavyMotion, setDisableHeavyMotion] = useState(false);
 
   useEffect(() => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const tabletDown = window.matchMedia('(max-width: 1024px)');
+    const coarsePointer = window.matchMedia('(pointer: coarse)');
+
+    const updateMotionMode = () => {
+      setDisableHeavyMotion(reducedMotion.matches || tabletDown.matches || coarsePointer.matches);
+    };
+
+    updateMotionMode();
+
+    const mediaQueries = [reducedMotion, tabletDown, coarsePointer];
+    mediaQueries.forEach((mq) => {
+      if ('addEventListener' in mq) {
+        mq.addEventListener('change', updateMotionMode);
+      } else {
+        mq.addListener(updateMotionMode);
+      }
+    });
+
+    return () => {
+      mediaQueries.forEach((mq) => {
+        if ('removeEventListener' in mq) {
+          mq.removeEventListener('change', updateMotionMode);
+        } else {
+          mq.removeListener(updateMotionMode);
+        }
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (disableHeavyMotion) return;
+
     const onScroll = () => {
       cancelAnimationFrame(scrollRafRef.current);
       scrollRafRef.current = requestAnimationFrame(() => {
@@ -33,9 +63,11 @@ export function LandingPage() {
       window.removeEventListener('scroll', onScroll);
       cancelAnimationFrame(scrollRafRef.current);
     };
-  }, []);
+  }, [disableHeavyMotion]);
 
   useEffect(() => {
+    if (disableHeavyMotion) return;
+
     const canvas = canvas3dRef.current;
     if (!canvas) return;
 
@@ -65,7 +97,7 @@ export function LandingPage() {
       window.removeEventListener('mousemove', handleMouseMove);
       clearTimeout(entranceTimeout);
     };
-  }, []);
+  }, [disableHeavyMotion]);
 
   useEffect(() => {
     const btn = ctaBtnRef.current;
@@ -143,7 +175,7 @@ export function LandingPage() {
         </button>
       </nav>
 
-      <header ref={heroRef} style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: '#08060e' }}>
+      <header ref={heroRef} className="hero-header">
         {/* Purple background orbs */}
         <div className="hero-orb" style={{ width: 520, height: 520, top: '-8%', left: '-5%', background: 'radial-gradient(circle, rgba(120,50,180,0.38) 0%, transparent 70%)', animationDelay: '0s' }} />
         <div className="hero-orb" style={{ width: 400, height: 400, top: '10%', right: '5%', background: 'radial-gradient(circle, rgba(90,50,200,0.28) 0%, transparent 70%)', animationDelay: '0.4s' }} />
@@ -217,9 +249,6 @@ export function LandingPage() {
       </header>
 
       <section id="features" ref={featuresRef} className="relative px-4 sm:px-6 pt-12 sm:pt-20 pb-8 sm:pb-10 overflow-hidden">
-        <Suspense fallback={null}>
-          <InteractiveDotGrid containerRef={featuresRef} />
-        </Suspense>
         <div className="absolute -top-24 right-[8%] w-64 h-64 rounded-full bg-[#cc8bed]/20 blur-[90px]" />
         <div className="absolute top-[38%] -left-20 w-52 h-52 rounded-full bg-[#7f8cff]/20 blur-[85px]" />
 
@@ -254,7 +283,7 @@ export function LandingPage() {
                   }}
                   className={`clip-shell rounded-lg sm:rounded-[22px] min-h-[220px] sm:min-h-[280px] md:min-h-[340px] ${feature.classes}`}
                 >
-                  <video autoPlay loop muted playsInline preload="metadata" className="absolute inset-0">
+                  <video autoPlay loop muted playsInline preload={index === 0 ? 'metadata' : 'none'} className="absolute inset-0">
                     <source src={feature.clip} type="video/mp4" />
                   </video>
                   <div className="noise-layer absolute inset-0 z-[1]" />
@@ -274,9 +303,6 @@ export function LandingPage() {
       </section>
 
       <section id="workflow" ref={workflowRef} className="relative px-4 sm:px-6 py-12 sm:py-24 bg-white/[0.02] border-y border-white/10 overflow-hidden">
-        <Suspense fallback={null}>
-          <InteractiveDotGrid containerRef={workflowRef} />
-        </Suspense>
         <div className="max-w-7xl mx-auto md:grid md:grid-cols-12 gap-4 md:gap-6">
           <div className="md:col-span-5 md:sticky md:top-24 md:h-fit" data-reveal>
             <p className="text-[10px] sm:text-xs uppercase tracking-[0.18em] text-[#cc8bed]">How it feels</p>

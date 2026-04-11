@@ -47,14 +47,27 @@ if (import.meta.env.DEV) observeWebVitals();
 
 // Prevent browser-level pinch-to-zoom so only the drawing canvas zooms.
 // Trackpad pinch fires wheel events with ctrlKey; Safari fires gesture events.
-window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
-window.addEventListener('gesturestart', (e) => e.preventDefault());
-window.addEventListener('gesturechange', (e) => e.preventDefault());
-window.addEventListener('gestureend', (e) => e.preventDefault());
+const isEditorRoute = () => window.location.pathname.startsWith('/app/');
+
+window.addEventListener('wheel', (e) => {
+  if (isEditorRoute() && e.ctrlKey) e.preventDefault();
+}, { passive: false });
+
+window.addEventListener('gesturestart', (e) => {
+  if (isEditorRoute()) e.preventDefault();
+});
+
+window.addEventListener('gesturechange', (e) => {
+  if (isEditorRoute()) e.preventDefault();
+});
+
+window.addEventListener('gestureend', (e) => {
+  if (isEditorRoute()) e.preventDefault();
+});
 
 // Block Ctrl/Cmd +/- browser zoom shortcuts
 window.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
+  if (isEditorRoute() && (e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
     e.preventDefault();
   }
 }, { passive: false });

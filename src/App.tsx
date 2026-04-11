@@ -97,6 +97,25 @@ function RouteHandler({ children }: { children: React.ReactNode }) {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
+  useEffect(() => {
+    const isEditorRoute = location.pathname.startsWith('/app/');
+    const html = document.documentElement;
+    const body = document.body;
+
+    if (isEditorRoute) {
+      html.style.overscrollBehaviorX = 'none';
+      html.style.overscrollBehaviorY = 'none';
+      body.style.overscrollBehaviorX = 'none';
+      body.style.overscrollBehaviorY = 'none';
+      return;
+    }
+
+    html.style.overscrollBehaviorX = '';
+    html.style.overscrollBehaviorY = '';
+    body.style.overscrollBehaviorX = '';
+    body.style.overscrollBehaviorY = '';
+  }, [location.pathname]);
+
   return <>{children}</>;
 }
 

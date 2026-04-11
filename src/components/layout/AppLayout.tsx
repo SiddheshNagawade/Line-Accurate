@@ -27,7 +27,7 @@ interface AppHeaderProps {
 export function AppHeader({ children }: AppHeaderProps) {
   return (
     <header className="shrink-0 z-30">
-      <div className="glass-panel rounded-b-2xl px-4 py-2 flex items-center justify-between shadow-lg border-b border-x border-white/20">
+      <div className="glass-panel rounded-b-2xl px-2 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between shadow-lg border-b border-x border-white/20">
         {children}
       </div>
     </header>
@@ -40,7 +40,7 @@ interface AppMainProps {
 
 export function AppMain({ children }: AppMainProps) {
   return (
-    <div className="flex-1 flex min-h-0 px-2 py-2 gap-2 relative">
+    <div className="flex-1 flex min-h-0 px-1 sm:px-2 py-1 sm:py-2 gap-1.5 sm:gap-2 relative overflow-hidden">
       {children}
     </div>
   );
@@ -53,17 +53,17 @@ interface LogoProps {
 
 export function Logo({ title = 'LineAccurate', subtitle }: LogoProps) {
   return (
-    <div className="flex items-center space-x-3">
-      <div className="w-7 h-7 bg-[#cc8bed] rounded-md flex items-center justify-center shadow-lg shadow-[#cc8bed]/30">
+    <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+      <div className="w-6 h-6 sm:w-7 sm:h-7 bg-[#cc8bed] rounded-md flex items-center justify-center shadow-lg shadow-[#cc8bed]/30 shrink-0">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
           <path d="M22 12A10 10 0 0 0 12 2v10z" />
         </svg>
       </div>
-      <div>
-        <h1 className="text-base font-bold text-white tracking-tight">{title}</h1>
+      <div className="min-w-0">
+        <h1 className="text-sm sm:text-base font-bold text-white tracking-tight truncate">{title}</h1>
         {subtitle && (
-          <div className="flex items-center space-x-2 text-[9px] text-white/50 font-medium uppercase tracking-wider">
+          <div className="hidden sm:flex items-center space-x-2 text-[9px] text-white/50 font-medium uppercase tracking-wider">
             <span>{subtitle}</span>
           </div>
         )}

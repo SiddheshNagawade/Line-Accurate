@@ -124,16 +124,16 @@ export function NavFileControls({ activeKey, onToggle, onCloseAll, showNotice }:
   };
 
   return (
-    <div className="flex items-center space-x-3">
+    <div className="flex items-center space-x-2 sm:space-x-3">
       {/* Save dropdown */}
       <div className="relative" ref={saveDropdownRef}>
         <button
           onClick={() => setSaveDropdownOpen(!saveDropdownOpen)}
-          className="flex items-center space-x-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white/90 hover:text-white rounded-xl transition-all duration-200 border border-white/5 hover:border-white/10 active:scale-95 group"
+          className="flex items-center space-x-2 px-2.5 sm:px-4 py-2 bg-white/5 hover:bg-white/10 text-white/90 hover:text-white rounded-xl transition-all duration-200 border border-white/5 hover:border-white/10 active:scale-95 group"
           title="Save your work"
         >
           <Save size={18} className="text-[#cc8bed] group-hover:scale-110 transition-transform" />
-          <span className="text-sm font-medium">Save</span>
+          <span className="hidden sm:inline text-sm font-medium">Save</span>
         </button>
 
         {saveDropdownOpen && (

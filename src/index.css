@@ -65,15 +65,14 @@
   }
 }
 
-html {
-  overscroll-behavior: none !important;
-  -ms-scroll-chaining: none;
+html,
+body {
+  overscroll-behavior: auto;
+  -ms-scroll-chaining: chained;
 }
 
 body {
-  overscroll-behavior: none !important;
-  -ms-scroll-chaining: none;
-  touch-action: pan-y pinch-zoom; /* allow vertical scroll & pinch, block horizontal swipe */
+  touch-action: pan-y pinch-zoom;
 }
 
 html,

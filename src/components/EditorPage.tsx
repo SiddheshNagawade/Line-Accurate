@@ -25,6 +25,7 @@ export function EditorPage() {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
   const { state: drawingState } = useDrawingContext();
 
   useEffect(() => {
@@ -39,6 +40,24 @@ export function EditorPage() {
       cancelAnimationFrame(raf);
       setEditorReady(false);
     };
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1100px)');
+
+    const handleChange = () => {
+      setIsCompactLayout(media.matches);
+    };
+
+    handleChange();
+
+    if ('addEventListener' in media) {
+      media.addEventListener('change', handleChange);
+      return () => media.removeEventListener('change', handleChange);
+    }
+
+    media.addListener(handleChange);
+    return () => media.removeListener(handleChange);
   }, []);
 
   const showNotice = (type: 'success' | 'error', text: string) => setNotice({ type, text });
@@ -74,9 +93,6 @@ export function EditorPage() {
     document.addEventListener('wheel', blockSwipeWheel, wheelOptions);
     document.addEventListener(overscrollEvent, blockOverscroll as EventListener, { passive: false });
 
-    document.documentElement.style.overscrollBehaviorX = 'none';
-    document.body.style.overscrollBehaviorX = 'none';
-
     return () => {
       document.removeEventListener('wheel', blockSwipeWheel, wheelOptions);
       document.removeEventListener(overscrollEvent, blockOverscroll as EventListener);
@@ -104,16 +120,18 @@ export function EditorPage() {
     return user.fullName.split(' ')[0];
   };
 
+  const isPanelOpen = activePanel !== null;
+
   return (
     <AppLayout>
       <AppHeader>
-        <div className={`editor-chrome editor-from-top editor-speed-fast flex w-full items-center justify-between ${editorReady ? 'editor-chrome-ready' : ''}`}>
-          <div className="flex items-center space-x-3">
+        <div className={`editor-chrome editor-from-top editor-speed-fast flex w-full flex-wrap items-center justify-between gap-2 ${editorReady ? 'editor-chrome-ready' : ''}`}>
+          <div className="flex min-w-0 items-center space-x-2 sm:space-x-3">
             <Button variant="icon" icon={ArrowLeft} iconSize={16} onClick={handleBackToDashboard} title="Back to dashboard" />
             <Logo title="LineAccurate" subtitle={currentProject?.name ?? 'Project'} />
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex max-w-full items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5">
             <NavFileControls
               activeKey={activeNav}
               onToggle={(key) => {
@@ -160,7 +178,7 @@ export function EditorPage() {
       </AppHeader>
 
       <AppMain>
-        <div className={`editor-chrome editor-from-left editor-speed-slow shrink-0 z-20 h-full flex flex-col ${editorReady ? 'editor-chrome-ready' : ''}`}>
+        <div className={`editor-chrome editor-from-left editor-speed-slow shrink-0 z-20 h-full flex flex-col w-[58px] sm:w-[64px] ${editorReady ? 'editor-chrome-ready' : ''}`}>
           <Panel className="h-full overflow-y-auto overflow-x-visible no-scrollbar">
             <Toolbar />
           </Panel>
@@ -169,9 +187,24 @@ export function EditorPage() {
         <div className="flex-1 relative z-0 rounded-2xl overflow-hidden shadow-inner bg-white">
           <DrawingCanvas onCursorMove={setCursorPosition} />
           <CanvasOverlays />
+
+          {isCompactLayout && isPanelOpen && (
+            <button
+              type="button"
+              aria-label="Close side panel"
+              className="absolute inset-0 bg-black/25 z-20"
+              onClick={() => setActivePanel(null)}
+            />
+          )}
         </div>
 
-        <div className={`editor-chrome editor-from-right editor-speed-slow shrink-0 z-20 h-full flex flex-col transition-[width] duration-300 ease-in-out ${editorReady ? 'editor-chrome-ready' : ''} ${activePanel ? 'w-[320px]' : 'w-0 overflow-hidden'}`}>
+        <div
+          className={`editor-chrome editor-from-right editor-speed-slow z-30 h-full flex flex-col transition-[width] duration-300 ease-in-out ${editorReady ? 'editor-chrome-ready' : ''} ${
+            isCompactLayout
+              ? `absolute right-0 top-0 ${isPanelOpen ? 'w-[min(84vw,320px)]' : 'w-0 overflow-hidden'} max-w-full`
+              : `${isPanelOpen ? 'w-[320px]' : 'w-0 overflow-hidden'} shrink-0`
+          }`}
+        >
           <Panel className="flex-1 overflow-hidden flex flex-col">
             {activePanel === 'pages' && <PagesPanel />}
             {activePanel === 'layers' && <LayerPanel />}

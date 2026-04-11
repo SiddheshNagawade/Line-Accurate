@@ -130,28 +130,28 @@ export function LandingPage() {
       {
         title: 'Snap-to-grid line control',
         description: 'Place cleaner technical lines quickly with consistent spacing and alignment.',
-        clip: '/videos/snap-grid.mp4',
+        previewImage: '/landing-preview.webp',
         icon: Grid2X2,
         classes: 'md:col-span-7 md:-rotate-[1.2deg] md:translate-y-4',
       },
       {
         title: 'Tool switching in flow',
         description: 'Move between line, freehand, text, angle, selection, and eraser in one canvas rhythm.',
-        clip: '/videos/tool-flow.mp4',
+        previewImage: '/landing-preview.webp',
         icon: MousePointer2,
         classes: 'md:col-span-5 md:rotate-[1.3deg] md:-translate-y-5',
       },
       {
         title: 'Layer + page organization',
         description: 'Handle complex diagrams by isolating structure, notes, and revisions.',
-        clip: '/videos/layers-pages.mp4',
+        previewImage: '/landing-preview.webp',
         icon: Layers,
         classes: 'md:col-span-5 md:-rotate-[1deg] md:translate-y-2',
       },
       {
         title: 'Export-ready sheets',
         description: 'Generate clean PDF output when your drawing is ready to submit or share.',
-        clip: '/videos/pdf-export.mp4',
+        previewImage: '/landing-preview.webp',
         icon: Zap,
         classes: 'md:col-span-7 md:rotate-[1.1deg] md:translate-y-10',
       },
@@ -259,7 +259,7 @@ export function LandingPage() {
               <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight mt-2 sm:mt-3 leading-tight">Scroll through what the canvas can actually do.</h2>
             </div>
             <p className="text-white/55 text-xs sm:text-sm md:max-w-xs md:text-right">
-              Each tile is a looping demo clip. Drop your own videos in the same paths to make this fully real.
+              Each tile uses a lightweight preview image so the page loads cleanly on every device.
             </p>
           </div>
 
@@ -283,9 +283,7 @@ export function LandingPage() {
                   }}
                   className={`clip-shell rounded-lg sm:rounded-[22px] min-h-[220px] sm:min-h-[280px] md:min-h-[340px] ${feature.classes}`}
                 >
-                  <video autoPlay loop muted playsInline preload={index === 0 ? 'metadata' : 'none'} className="absolute inset-0">
-                    <source src={feature.clip} type="video/mp4" />
-                  </video>
+                  <img src={feature.previewImage} alt={`${feature.title} preview`} loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-80" />
                   <div className="noise-layer absolute inset-0 z-[1]" />
 
                   <div className="relative z-[3] p-4 sm:p-5 md:p-6 h-full flex flex-col justify-end">
@@ -368,9 +366,7 @@ export function LandingPage() {
             </div>
 
             <div className="clip-shell rounded-xl sm:rounded-2xl min-h-[200px] sm:min-h-[230px] rotate-[1.4deg] hidden sm:block">
-              <video autoPlay loop muted playsInline preload="metadata" className="absolute inset-0">
-                <source src="/videos/final-showcase.mp4" type="video/mp4" />
-              </video>
+              <img src="/landing-preview.webp" alt="LineAccurate workflow preview" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-80" />
               <div className="noise-layer absolute inset-0 z-[1]" />
               <div className="relative z-[3] p-5 h-full flex flex-col justify-end">
                 <p className="text-xs uppercase tracking-widest text-white/60">Final Pass</p>
